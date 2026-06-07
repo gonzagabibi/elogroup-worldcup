@@ -116,7 +116,6 @@ export default function MinhaPerformance() {
         const userB = bs[`${i}-b`] !== undefined && bs[`${i}-b`] !== '' ? parseInt(bs[`${i}-b`]) : null
         const userWinner = pw[i] || bw[i] || null
         // Resultado real do mata-mata ainda não disponível
-        const pts = STAGE_POINTS[st] || { exact: 0, winner: 0 }
         return {
           homeTeam: ta, awayTeam: tb,
           userA, userB, realA: null, realB: null,
