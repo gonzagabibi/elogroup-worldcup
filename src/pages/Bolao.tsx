@@ -343,11 +343,11 @@ export default function Bolao() {
                       <div className="flex items-center gap-2">
                         <span className="flex items-center gap-2 flex-1 text-xs font-medium"><Flag code={ta.c} />{ta.n}</span>
                         <div className="flex items-center gap-1">
-                          <input type="number" min="0" max="20" disabled={cl.length > 0 || locked}
+                          <input type="number" min="0" max="20" disabled={locked}
                             value={s[`${key}-a`] || ''} onChange={e => setScore(gi, `${key}-a`, e.target.value)}
                             className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40 disabled:cursor-not-allowed" />
                           <span className="text-gray-300 text-xs">×</span>
-                          <input type="number" min="0" max="20" disabled={cl.length > 0 || locked}
+                          <input type="number" min="0" max="20" disabled={locked}
                             value={s[`${key}-b`] || ''} onChange={e => setScore(gi, `${key}-b`, e.target.value)}
                             className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40 disabled:cursor-not-allowed" />
                         </div>
