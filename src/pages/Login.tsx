@@ -10,21 +10,31 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
-  const handleSubmit = async () => {
-    setLoading(true)
-    setError('')
-    if (isSignUp) {
-      const { error } = await supabase.auth.signUp({
-        email, password,
-        options: { data: { full_name: name } }
-      })
-      if (error) setError(error.message)
-    } else {
-      const { error } = await supabase.auth.signInWithPassword({ email, password })
-      if (error) setError('Email ou senha incorretos')
+ const handleSubmit = async () => {
+  setLoading(true)
+  setError('')
+  if (isSignUp) {
+    const { data, error } = await supabase.auth.signUp({
+      email, password,
+      options: { data: { full_name: name } }
+    })
+    if (error) {
+      setError(error.message)
+    } else if (data.user) {
+      // Salva o nome na tabela predictions imediatamente
+      await supabase.from('predictions').upsert({
+        user_id: data.user.id,
+        data: { nome: name },
+        confirmed: false,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
     }
-    setLoading(false)
+  } else {
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    if (error) setError('Email ou senha incorretos')
   }
+  setLoading(false)
+}
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col">
