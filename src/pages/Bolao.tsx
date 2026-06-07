@@ -368,7 +368,7 @@ export default function Bolao() {
 
       <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
         {tabs.map(tab => (
-          <button key={tab.id} onClick={() => !tab.locked && !locked && setStage(tab.id)}
+          <button key={tab.id} onClick={() => !tab.locked && setStage(tab.id)}
             className={`px-4 py-3 text-xs font-semibold tracking-widest border-b-2 whitespace-nowrap transition ${
               stage === tab.id ? 'border-yellow-400 text-black' :
               tab.locked ? 'border-transparent text-gray-300 cursor-not-allowed' :
