@@ -21,13 +21,7 @@ const MATCHES = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]]
 const STAGE_LABELS: Record<string, string> = {
   r32: 'RODADA DE 32', oitavas: 'OITAVAS', quartas: 'QUARTAS', semi: 'SEMIFINAL', final: 'FINAL'
 }
-const STAGE_POINTS: Record<string, { exact: number; winner: number }> = {
-  r32:    { exact: 6, winner: 3 },
-  oitavas:{ exact: 8, winner: 4 },
-  quartas:{ exact: 10, winner: 5 },
-  semi:   { exact: 13, winner: 6 },
-  final:  { exact: 18, winner: 8 },
-}
+
 
 function Flag({ code, size = 'md' }: { code: string; size?: 'sm' | 'md' }) {
   const sizes = { sm: '1rem', md: '1.4rem' }
