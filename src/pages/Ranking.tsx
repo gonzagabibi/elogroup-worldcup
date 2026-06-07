@@ -2,6 +2,21 @@ import { useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
+const GROUPS = [
+  { name:'A', teams:[{n:'México',c:'mx'},{n:'África do Sul',c:'za'},{n:'Coreia do Sul',c:'kr'},{n:'Rep. Tcheca',c:'cz'}] },
+  { name:'B', teams:[{n:'Canadá',c:'ca'},{n:'Bósnia-Herz.',c:'ba'},{n:'Catar',c:'qa'},{n:'Suíça',c:'ch'}] },
+  { name:'C', teams:[{n:'Brasil',c:'br'},{n:'Marrocos',c:'ma'},{n:'Haiti',c:'ht'},{n:'Escócia',c:'gb-sct'}] },
+  { name:'D', teams:[{n:'EUA',c:'us'},{n:'Paraguai',c:'py'},{n:'Austrália',c:'au'},{n:'Turquia',c:'tr'}] },
+  { name:'E', teams:[{n:'Alemanha',c:'de'},{n:'Curaçao',c:'cw'},{n:'Costa do Marfim',c:'ci'},{n:'Equador',c:'ec'}] },
+  { name:'F', teams:[{n:'Países Baixos',c:'nl'},{n:'Japão',c:'jp'},{n:'Suécia',c:'se'},{n:'Tunísia',c:'tn'}] },
+  { name:'G', teams:[{n:'Bélgica',c:'be'},{n:'Egito',c:'eg'},{n:'Irã',c:'ir'},{n:'Nova Zelândia',c:'nz'}] },
+  { name:'H', teams:[{n:'Espanha',c:'es'},{n:'Cabo Verde',c:'cv'},{n:'Arábia Saudita',c:'sa'},{n:'Uruguai',c:'uy'}] },
+  { name:'I', teams:[{n:'França',c:'fr'},{n:'Senegal',c:'sn'},{n:'Iraque',c:'iq'},{n:'Noruega',c:'no'}] },
+  { name:'J', teams:[{n:'Argentina',c:'ar'},{n:'Argélia',c:'dz'},{n:'Áustria',c:'at'},{n:'Jordânia',c:'jo'}] },
+  { name:'K', teams:[{n:'Portugal',c:'pt'},{n:'Congo (RD)',c:'cd'},{n:'Uzbequistão',c:'uz'},{n:'Colômbia',c:'co'}] },
+  { name:'L', teams:[{n:'Inglaterra',c:'gb-eng'},{n:'Croácia',c:'hr'},{n:'Gana',c:'gh'},{n:'Panamá',c:'pa'}] },
+]
+
 const MATCHES = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]]
 
 const CATEGORIES = [
@@ -16,42 +31,66 @@ function getCategory(percentile: number) {
   return CATEGORIES.find(c => percentile >= c.min && percentile < c.max) || CATEGORIES[4]
 }
 
-function getBadges(data: any): string[] {
+function getBadges(data: any, points: number, exactHits: number): string[] {
   const badges: string[] = []
   if (!data) return badges
   const bw = data.bracketWinners || {}
   const champion = (bw['final'] || []).find(Boolean)
   if (champion?.c === 'br') badges.push('🇧🇷 Patriota')
-  const allGroupsDone = Object.keys(data.scores || {}).length === 12
-  if (allGroupsDone && champion) badges.push('✅ Completo')
+  if (Object.keys(data.scores || {}).length === 12 && champion) badges.push('✅ Completo')
+  if (exactHits >= 5) badges.push('🔮 Vidente')
+  if (points > 200) badges.push('🔥 Em Chamas')
   return badges
 }
 
-function calcPoints(data: any): { total: number; byStage: Record<string, number> } {
-  if (!data) return { total: 0, byStage: {} }
+function calcPointsFromResults(data: any, results: any[]): { total: number; byStage: Record<string, number>; exactHits: number } {
+  if (!data) return { total: 0, byStage: {}, exactHits: 0 }
+
   const scores = data.scores || {}
-  const bw = data.bracketWinners || {}
   let total = 0
-  const byStage: Record<string, number> = {}
+  let exactHits = 0
+  const byStage: Record<string, number> = { grupos: 0, r32: 0, oitavas: 0, quartas: 0, semi: 0, final: 0 }
 
-  let groupFilled = 0
-  Object.values(scores).forEach((s: any) => {
-    MATCHES.forEach(([a, b]) => {
-      if (s[`${a}-${b}-a`] && s[`${a}-${b}-b`]) groupFilled++
-    })
-  })
-  byStage['grupos'] = groupFilled
-  total += groupFilled * 2
+  // Calcula pontos dos grupos comparando com resultados reais
+  for (let gi = 0; gi < GROUPS.length; gi++) {
+    const g = GROUPS[gi]
+    const s = scores[gi] || {}
+    for (const [ai, bi] of MATCHES) {
+      const key = `${ai}-${bi}`
+      const userA = parseInt(s[`${key}-a`] ?? '')
+      const userB = parseInt(s[`${key}-b`] ?? '')
+      if (isNaN(userA) || isNaN(userB)) continue
 
-  const stages = ['r32', 'oitavas', 'quartas', 'semi', 'final']
-  const stagePoints: Record<string, number> = { r32: 4, oitavas: 5, quartas: 7, semi: 10, final: 15 }
-  stages.forEach(st => {
-    const winners = (bw[st] || []).filter(Boolean).length
-    byStage[st] = winners
-    total += winners * (stagePoints[st] || 0)
-  })
+      const result = results.find(r => r.id === `group-${g.name}-${ai}-${bi}`)
+      if (!result || !result.played) continue
 
-  return { total, byStage }
+      const realA = result.score_home
+      const realB = result.score_away
+
+      // Multiplicador por grupo (zebra = maior pontuação)
+      const isZebra = (ai > 0 && bi > 0) // times menos favoritos
+      const mult = isZebra ? 1.5 : 1.0
+
+      if (userA === realA && userB === realB) {
+        // Placar exato
+        const pts = Math.round(5 * mult)
+        total += pts
+        byStage['grupos'] += pts
+        exactHits++
+      } else {
+        // Vencedor certo
+        const userWinner = userA > userB ? 'home' : userA < userB ? 'away' : 'draw'
+        const realWinner = realA > realB ? 'home' : realA < realB ? 'away' : 'draw'
+        if (userWinner === realWinner) {
+          const pts = Math.round(2 * mult)
+          total += pts
+          byStage['grupos'] += pts
+        }
+      }
+    }
+  }
+
+  return { total, byStage, exactHits }
 }
 
 type Player = {
@@ -63,25 +102,27 @@ type Player = {
   category: ReturnType<typeof getCategory>
   byStage: Record<string, number>
   champion: any
+  exactHits: number
 }
 
 export default function Ranking() {
   const { user } = useAuth()
   const [players, setPlayers] = useState<Player[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<string>('geral')
+  const [activeTab, setActiveTab] = useState('geral')
 
   useEffect(() => { loadRanking() }, [])
 
   const loadRanking = async () => {
-    const { data, error } = await supabase
-      .from('predictions')
-      .select('user_id, data, confirmed')
+    const [{ data: predictions }, { data: results }] = await Promise.all([
+      supabase.from('predictions').select('user_id, data, confirmed'),
+      supabase.from('match_results').select('*').eq('played', true),
+    ])
 
-    if (error || !data) { setLoading(false); return }
+    if (!predictions) { setLoading(false); return }
 
-    const ranked: Player[] = data.map(row => {
-      const { total, byStage } = calcPoints(row.data)
+    const ranked: Player[] = predictions.map(row => {
+      const { total, byStage, exactHits } = calcPointsFromResults(row.data, results || [])
       const bw = row.data?.bracketWinners || {}
       const champion = (bw['final'] || []).find(Boolean) || null
       return {
@@ -89,10 +130,11 @@ export default function Ranking() {
         nome: row.data?.nome || 'Participante',
         points: total,
         confirmed: row.confirmed,
-        badges: getBadges(row.data),
+        badges: getBadges(row.data, total, exactHits),
         category: getCategory(0),
         byStage,
         champion,
+        exactHits,
       }
     })
 
@@ -142,11 +184,11 @@ export default function Ranking() {
       {me && (
         <div className="bg-black text-white rounded-xl p-4 mb-6 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-yellow-400 flex items-center justify-center text-black font-black text-lg" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            #{myPosition}
+            #{myPosition || '?'}
           </div>
           <div className="flex-1">
             <p className="text-xs text-gray-400 mb-0.5">SUA POSIÇÃO</p>
-            <p className="font-bold">Você</p>
+            <p className="font-bold">{me.nome} (você)</p>
             <div className="flex gap-2 mt-1 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded font-bold ${me.category.color}`}>{me.category.label}</span>
               {me.badges.map(b => <span key={b} className="text-xs bg-white/10 px-2 py-0.5 rounded">{b}</span>)}
@@ -155,6 +197,7 @@ export default function Ranking() {
           <div className="text-right">
             <p className="font-black text-2xl text-green-400" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{me.points}</p>
             <p className="text-xs text-gray-400">pontos</p>
+            {me.exactHits > 0 && <p className="text-xs text-yellow-400">{me.exactHits} exatos</p>}
           </div>
         </div>
       )}
@@ -218,6 +261,7 @@ export default function Ranking() {
                       {activeTab === 'geral' ? player.points : (player.byStage[activeTab] || 0)}
                     </p>
                     <p className="text-xs text-gray-400">pts</p>
+                    {player.exactHits > 0 && <p className="text-xs text-yellow-500">{player.exactHits} exatos</p>}
                   </div>
                 </div>
               )
@@ -225,7 +269,7 @@ export default function Ranking() {
           </div>
         )}
       </div>
-      <p className="text-xs text-gray-400 text-center mt-4">Ranking atualizado em tempo real conforme os bolões são confirmados</p>
+      <p className="text-xs text-gray-400 text-center mt-4">Ranking atualizado em tempo real conforme os jogos acontecem</p>
     </div>
   )
 }
