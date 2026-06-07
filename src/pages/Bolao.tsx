@@ -500,7 +500,15 @@ export default function Bolao() {
                   {saving ? 'SALVANDO...' : 'CONFIRMAR MEU BOLÃO'}
                 </button>
               )}
-              {confirmed && <p className="text-green-600 font-semibold text-sm">Bolão confirmado!</p>}
+             {confirmed && (
+  <div className="mt-4 text-center">
+    <p className="text-green-600 font-semibold text-sm mb-3">✓ Bolão confirmado!</p>
+    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+      <p className="text-yellow-800 font-bold text-sm mb-1">⚽ Não esqueça dos Craques!</p>
+      <p className="text-yellow-700 text-xs">Preencha o Bolão dos Craques para garantir até +55pts de bônus!</p>
+    </div>
+  </div>
+)}
             </div>
           ) : (
             <div>
