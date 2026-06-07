@@ -1,3 +1,4 @@
+cat > src/pages/Bolao.tsx << 'ENDOFFILE'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -62,16 +63,15 @@ function allFilled(gi: number, scores: Record<number, Scores>): boolean {
   )
 }
 
-// Slots oficiais FIFA: qual 1º espera qual terceiro, e de quais grupos esse terceiro pode vir
 const THIRD_SLOTS = [
-  { winner: 0,  eligible: ['C','E','F','H','I'] }, // M79: 1A
-  { winner: 1,  eligible: ['E','F','G','I','J'] }, // M85: 1B
-  { winner: 3,  eligible: ['B','E','F','I','J'] }, // M81: 1D
-  { winner: 4,  eligible: ['A','B','C','D','F'] }, // M74: 1E
-  { winner: 6,  eligible: ['A','E','H','I','J'] }, // M82: 1G
-  { winner: 8,  eligible: ['C','D','F','G','H'] }, // M77: 1I
-  { winner: 10, eligible: ['D','E','I','J','L'] }, // M87: 1K
-  { winner: 11, eligible: ['E','H','I','J','K'] }, // M80: 1L
+  { winner: 0,  eligible: ['C','E','F','H','I'] },
+  { winner: 1,  eligible: ['E','F','G','I','J'] },
+  { winner: 3,  eligible: ['B','E','F','I','J'] },
+  { winner: 4,  eligible: ['A','B','C','D','F'] },
+  { winner: 6,  eligible: ['A','E','H','I','J'] },
+  { winner: 8,  eligible: ['C','D','F','G','H'] },
+  { winner: 10, eligible: ['D','E','I','J','L'] },
+  { winner: 11, eligible: ['E','H','I','J','K'] },
 ]
 
 function buildR32(allClassified: Record<number, Team[]>, allThirds: Standing[]): (Team | null)[][] {
@@ -80,12 +80,9 @@ function buildR32(allClassified: Record<number, Team[]>, allThirds: Standing[]):
     b.saldo !== a.saldo ? b.saldo - a.saldo :
     b.gf - a.gf
   )
-
   const best8 = sorted.slice(0, 8)
-
   const used = new Set<string>()
   const slotAssignments: Record<number, Team | null> = {}
-
   for (const slot of THIRD_SLOTS) {
     const eligible = best8
       .filter(t => slot.eligible.includes(t.groupName) && !used.has(t.groupName))
@@ -94,7 +91,6 @@ function buildR32(allClassified: Record<number, Team[]>, allThirds: Standing[]):
         b.saldo !== a.saldo ? b.saldo - a.saldo :
         b.gf - a.gf
       )
-
     if (eligible.length > 0) {
       slotAssignments[slot.winner] = eligible[0].team
       used.add(eligible[0].groupName)
@@ -104,30 +100,27 @@ function buildR32(allClassified: Record<number, Team[]>, allThirds: Standing[]):
       if (fallback) used.add(fallback.groupName)
     }
   }
-
   const c = allClassified
   const t = slotAssignments
-
   return [
-    [c[0]?.[1],  c[1]?.[1]],
-    [c[4]?.[0],  t[4]],
-    [c[5]?.[0],  c[2]?.[1]],
-    [c[2]?.[0],  c[5]?.[1]],
-    [c[8]?.[0],  t[8]],
-    [c[4]?.[1],  c[8]?.[1]],
-    [c[0]?.[0],  t[0]],
+    [c[0]?.[1], c[1]?.[1]],
+    [c[4]?.[0], t[4]],
+    [c[5]?.[0], c[2]?.[1]],
+    [c[2]?.[0], c[5]?.[1]],
+    [c[8]?.[0], t[8]],
+    [c[4]?.[1], c[8]?.[1]],
+    [c[0]?.[0], t[0]],
     [c[11]?.[0], t[11]],
-    [c[3]?.[0],  t[3]],
-    [c[6]?.[0],  t[6]],
+    [c[3]?.[0], t[3]],
+    [c[6]?.[0], t[6]],
     [c[10]?.[1], c[11]?.[1]],
-    [c[7]?.[0],  c[9]?.[1]],
-    [c[1]?.[0],  t[1]],
-    [c[9]?.[0],  c[7]?.[1]],
+    [c[7]?.[0], c[9]?.[1]],
+    [c[1]?.[0], t[1]],
+    [c[9]?.[0], c[7]?.[1]],
     [c[10]?.[0], t[10]],
-    [c[3]?.[1],  c[6]?.[1]],
+    [c[3]?.[1], c[6]?.[1]],
   ]
 }
-
 
 export default function Bolao() {
   const { user } = useAuth()
@@ -151,7 +144,7 @@ export default function Bolao() {
       .select('*')
       .eq('user_id', user.id)
       .single()
-      .then(({ data }) => {
+      .then(async ({ data }) => {
         if (data?.data) {
           const d = data.data
           if (d.scores) setScores(d.scores)
@@ -160,6 +153,14 @@ export default function Bolao() {
           if (d.bracketWinners) setBracketWinners(d.bracketWinners)
           if (d.penaltyWinners) setPenaltyWinners(d.penaltyWinners)
           if (data.confirmed) { setConfirmed(true); setLocked(true) }
+        }
+        const nome = user?.user_metadata?.full_name
+        if (nome && !data?.data?.nome) {
+          await supabase.from('predictions').upsert({
+            user_id: user.id,
+            data: { ...(data?.data || {}), nome },
+            updated_at: new Date().toISOString(),
+          }, { onConflict: 'user_id' })
         }
         setLoading(false)
       })
@@ -429,7 +430,7 @@ export default function Bolao() {
                         <p className="text-xs text-gray-400 font-bold mb-1">3º COLOCADO</p>
                         <span className="flex items-center gap-1.5 border border-gray-300 text-gray-500 text-xs font-semibold px-2 py-1 rounded w-fit">
                           <Flag code={third.team.c} size="sm" />{third.team.n}
-                          <span className="text-gray-400">({third.pts}pts, saldo {third.saldo > 0 ? '+' : ''}{third.saldo})</span>
+                          <span className="text-gray-400 font-normal">({third.pts}pts, saldo {third.saldo > 0 ? '+' : ''}{third.saldo})</span>
                         </span>
                       </div>
                     )}
@@ -515,3 +516,4 @@ export default function Bolao() {
     </div>
   )
 }
+ENDOFFILE
