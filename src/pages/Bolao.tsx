@@ -287,14 +287,13 @@ export default function Bolao() {
     (!isNaN(finalSa) && !isNaN(finalSb) && finalSa !== finalSb) ? (finalSa > finalSb ? ta : tb) : null
 
   const tabs = [
-    { id: 'grupos', label: 'GRUPOS', locked: false },
-    { id: 'r32', label: 'RODADA DE 32', locked: !allGroupsDone },
-    { id: 'oitavas', label: 'OITAVAS', locked: !bracket.oitavas },
-    { id: 'quartas', label: 'QUARTAS', locked: !bracket.quartas },
-    { id: 'semi', label: 'SEMIFINAL', locked: !bracket.semi },
-    { id: 'final', label: 'FINAL', locked: (bracketWinners.semi || []).filter(Boolean).length < 2 },
-  ]
-
+  { id: 'grupos', label: 'GRUPOS', locked: false },
+  { id: 'r32', label: 'RODADA DE 32', locked: !allGroupsDone && !bracket.r32 },
+  { id: 'oitavas', label: 'OITAVAS', locked: !bracket.oitavas },
+  { id: 'quartas', label: 'QUARTAS', locked: !bracket.quartas },
+  { id: 'semi', label: 'SEMIFINAL', locked: !bracket.semi },
+  { id: 'final', label: 'FINAL', locked: !bracket.final && (bracketWinners.semi || []).filter(Boolean).length < 2 },
+]
   const renderBracketStage = (st: string) => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       {(bracket[st] || []).map((pair, i) => {
