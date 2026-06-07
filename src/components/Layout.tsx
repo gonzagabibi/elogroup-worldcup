@@ -10,13 +10,13 @@ interface LayoutProps {
 export default function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const { user, signOut } = useAuth()
 
- const navItems = [
-  { id: 'ranking', label: 'RANKING' },
-  { id: 'bolao', label: 'MEU BOLÃO' },
-  { id: 'craques', label: 'CRAQUES' },
-  { id: 'performance', label: 'PERFORMANCE' },
-  { id: 'dashboard', label: 'DASHBOARD' },
-  { id: 'pontuacao', label: 'PONTUAÇÃO' },
+const navItems = [
+  { id: 'ranking', label: 'RANKING', badge: false },
+  { id: 'bolao', label: 'MEU BOLÃO', badge: true },
+  { id: 'craques', label: 'CRAQUES', badge: true },
+  { id: 'performance', label: 'PERFORMANCE', badge: false },
+  { id: 'dashboard', label: 'DASHBOARD', badge: false },
+  { id: 'pontuacao', label: 'PONTUAÇÃO', badge: false },
 ]
 
   return (
@@ -37,16 +37,19 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
       <nav className="bg-white border-b border-gray-200 px-6 flex sticky top-14 z-40 overflow-x-auto">
         {navItems.map(item => (
           <button
-            key={item.id}
-            onClick={() => onNavigate(item.id)}
-            className={`px-5 py-4 text-xs font-semibold tracking-widest border-b-2 transition whitespace-nowrap ${
-              currentPage === item.id || (currentPage === 'perfil' && item.id === 'ranking')
-                ? 'border-yellow-400 text-black'
-                : 'border-transparent text-gray-400 hover:text-black'
-            }`}
-          >
-            {item.label}
-          </button>
+  key={item.id}
+  onClick={() => onNavigate(item.id)}
+  className={`relative px-5 py-4 text-xs font-semibold tracking-widest border-b-2 transition whitespace-nowrap ${
+    currentPage === item.id || (currentPage === 'perfil' && item.id === 'ranking')
+      ? 'border-yellow-400 text-black'
+      : 'border-transparent text-gray-400 hover:text-black'
+  }`}
+>
+  {item.label}
+  {item.badge && (
+    <span className="absolute top-2.5 right-1.5 w-1.5 h-1.5 bg-green-500 rounded-full"></span>
+  )}
+</button>
         ))}
       </nav>
       <main className="max-w-6xl mx-auto px-6 py-8">
