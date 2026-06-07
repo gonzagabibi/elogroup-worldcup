@@ -62,28 +62,17 @@ function allFilled(gi: number, scores: Record<number, Scores>): boolean {
   )
 }
 
-// Tabela oficial FIFA 2026 Annex C (primeiras combinações)
-// Chave = grupos dos 8 terceiros ordenados alfabeticamente
-// Valor = [3° vs 1A, 3° vs 1B, 3° vs 1D, 3° vs 1E, 3° vs 1G, 3° vs 1I, 3° vs 1K, 3° vs 1L]
-const FIFA_THIRD_TABLE: Record<string, string[]> = {
-  'EFGHIJKL': ['3E','3J','3I','3F','3H','3G','3L','3K'],
-  'DFGHIJKL': ['3H','3G','3I','3D','3J','3F','3L','3K'],
-  'DEGHIJKL': ['3E','3J','3I','3D','3H','3G','3L','3K'],
-  'DEFHIJKL': ['3E','3J','3I','3D','3H','3F','3L','3K'],
-  'DEFGIJKL': ['3E','3G','3I','3D','3J','3F','3L','3K'],
-  'DEFGHJKL': ['3E','3G','3J','3D','3H','3F','3L','3K'],
-  'DEFGHIKL': ['3E','3G','3I','3D','3H','3F','3L','3K'],
-  'DEFGHIJL': ['3E','3G','3J','3D','3H','3F','3L','3I'],
-  'DEFGHIJK': ['3E','3G','3J','3D','3H','3F','3I','3K'],
-  'CFGHIJKL': ['3H','3G','3I','3C','3J','3F','3L','3K'],
-  'CEGHIJKL': ['3E','3G','3I','3C','3J','3F','3L','3K'],
-  'CEFHIJKL': ['3E','3H','3I','3C','3J','3F','3L','3K'],
-  'CEFGIJKL': ['3E','3G','3I','3C','3J','3F','3L','3K'],
-  'CEFGHJKL': ['3E','3G','3J','3C','3H','3F','3L','3K'],
-  'CEFGHIKL': ['3E','3G','3I','3C','3H','3F','3L','3K'],
-  'CEFGHIJL': ['3E','3G','3J','3C','3H','3F','3L','3I'],
-  'CEFGHIJK': ['3E','3G','3J','3C','3H','3F','3I','3K'],
-}
+// Slots oficiais FIFA: qual 1º espera qual terceiro, e de quais grupos esse terceiro pode vir
+const THIRD_SLOTS = [
+  { winner: 0,  eligible: ['C','E','F','H','I'] }, // M79: 1A
+  { winner: 1,  eligible: ['E','F','G','I','J'] }, // M85: 1B
+  { winner: 3,  eligible: ['B','E','F','I','J'] }, // M81: 1D
+  { winner: 4,  eligible: ['A','B','C','D','F'] }, // M74: 1E
+  { winner: 6,  eligible: ['A','E','H','I','J'] }, // M82: 1G
+  { winner: 8,  eligible: ['C','D','F','G','H'] }, // M77: 1I
+  { winner: 10, eligible: ['D','E','I','J','L'] }, // M87: 1K
+  { winner: 11, eligible: ['E','H','I','J','K'] }, // M80: 1L
+]
 
 function buildR32(allClassified: Record<number, Team[]>, allThirds: Standing[]): (Team | null)[][] {
   const sorted = [...allThirds].sort((a, b) =>
@@ -91,32 +80,54 @@ function buildR32(allClassified: Record<number, Team[]>, allThirds: Standing[]):
     b.saldo !== a.saldo ? b.saldo - a.saldo :
     b.gf - a.gf
   )
+
   const best8 = sorted.slice(0, 8)
-  const best8Key = best8.map(t => t.groupName).sort().join('')
-  const thirdMap = FIFA_THIRD_TABLE[best8Key] || ['3E','3G','3J','3D','3H','3F','3I','3K']
-  const thirds = best8.reduce((acc, t) => ({ ...acc, [`3${t.groupName}`]: t.team }), {} as Record<string, Team>)
-  const resolve = (slot: string): Team | null => thirds[slot] || null
+
+  const used = new Set<string>()
+  const slotAssignments: Record<number, Team | null> = {}
+
+  for (const slot of THIRD_SLOTS) {
+    const eligible = best8
+      .filter(t => slot.eligible.includes(t.groupName) && !used.has(t.groupName))
+      .sort((a, b) =>
+        b.pts !== a.pts ? b.pts - a.pts :
+        b.saldo !== a.saldo ? b.saldo - a.saldo :
+        b.gf - a.gf
+      )
+
+    if (eligible.length > 0) {
+      slotAssignments[slot.winner] = eligible[0].team
+      used.add(eligible[0].groupName)
+    } else {
+      const fallback = best8.find(t => !used.has(t.groupName))
+      slotAssignments[slot.winner] = fallback?.team || null
+      if (fallback) used.add(fallback.groupName)
+    }
+  }
+
   const c = allClassified
+  const t = slotAssignments
 
   return [
-    [c[0]?.[1], c[1]?.[1]],           // M73: 2A vs 2B
-    [c[4]?.[0], resolve(thirdMap[3])], // M74: 1E vs 3°
-    [c[5]?.[0], c[2]?.[1]],           // M75: 1F vs 2C
-    [c[2]?.[0], c[5]?.[1]],           // M76: 1C vs 2F
-    [c[8]?.[0], resolve(thirdMap[5])], // M77: 1I vs 3°
-    [c[4]?.[1], c[8]?.[1]],           // M78: 2E vs 2I
-    [c[0]?.[0], resolve(thirdMap[0])], // M79: 1A vs 3°
-    [c[11]?.[0], resolve(thirdMap[7])],// M80: 1L vs 3°
-    [c[3]?.[0], resolve(thirdMap[2])], // M81: 1D vs 3°
-    [c[6]?.[0], resolve(thirdMap[4])], // M82: 1G vs 3°
-    [c[10]?.[1], c[11]?.[1]],         // M83: 2K vs 2L
-    [c[7]?.[0], c[9]?.[1]],           // M84: 1H vs 2J
-    [c[1]?.[0], resolve(thirdMap[1])], // M85: 1B vs 3°
-    [c[9]?.[0], c[7]?.[1]],           // M86: 1J vs 2H
-    [c[10]?.[0], resolve(thirdMap[6])],// M87: 1K vs 3°
-    [c[3]?.[1], c[6]?.[1]],           // M88: 2D vs 2G
+    [c[0]?.[1],  c[1]?.[1]],
+    [c[4]?.[0],  t[4]],
+    [c[5]?.[0],  c[2]?.[1]],
+    [c[2]?.[0],  c[5]?.[1]],
+    [c[8]?.[0],  t[8]],
+    [c[4]?.[1],  c[8]?.[1]],
+    [c[0]?.[0],  t[0]],
+    [c[11]?.[0], t[11]],
+    [c[3]?.[0],  t[3]],
+    [c[6]?.[0],  t[6]],
+    [c[10]?.[1], c[11]?.[1]],
+    [c[7]?.[0],  c[9]?.[1]],
+    [c[1]?.[0],  t[1]],
+    [c[9]?.[0],  c[7]?.[1]],
+    [c[10]?.[0], t[10]],
+    [c[3]?.[1],  c[6]?.[1]],
   ]
 }
+
 
 export default function Bolao() {
   const { user } = useAuth()
