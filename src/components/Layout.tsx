@@ -10,14 +10,14 @@ interface LayoutProps {
 export default function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const { user, signOut } = useAuth()
 
-  const navItems = [
-    { id: 'dashboard', label: 'DASHBOARD' },
-    { id: 'bolao', label: 'MEU BOLÃO' },
-    { id: 'craques', label: 'CRAQUES' },
-    { id: 'performance', label: 'PERFORMANCE' },
-    { id: 'ranking', label: 'RANKING' },
-    { id: 'pontuacao', label: 'PONTUAÇÃO' },
-  ]
+ const navItems = [
+  { id: 'ranking', label: 'RANKING' },
+  { id: 'bolao', label: 'MEU BOLÃO' },
+  { id: 'craques', label: 'CRAQUES' },
+  { id: 'performance', label: 'PERFORMANCE' },
+  { id: 'dashboard', label: 'DASHBOARD' },
+  { id: 'pontuacao', label: 'PONTUAÇÃO' },
+]
 
   return (
     <div className="min-h-screen bg-gray-50">
