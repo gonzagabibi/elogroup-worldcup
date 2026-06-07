@@ -1,4 +1,6 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from '../context/AuthContext'
 
 const GROUPS = [
   { name: 'A', teams: [{n:'México',c:'mx'},{n:'África do Sul',c:'za'},{n:'Coreia do Sul',c:'kr'},{n:'Rep. Tcheca',c:'cz'}] },
@@ -56,6 +58,7 @@ function allFilled(gi: number, scores: Record<number, Scores>): boolean {
 }
 
 export default function Bolao() {
+  const { user } = useAuth()
   const [stage, setStage] = useState('grupos')
   const [scores, setScores] = useState<Record<number, Scores>>({})
   const [bracket, setBracket] = useState<Record<string, Team[][]>>({})
@@ -65,84 +68,122 @@ export default function Bolao() {
   const [penaltyModal, setPenaltyModal] = useState<{ stage: string; idx: number; ta: Team; tb: Team } | null>(null)
   const [confirmed, setConfirmed] = useState(false)
   const [locked, setLocked] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Carrega bolão salvo ao entrar na página
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('predictions')
+      .select('*')
+      .eq('user_id', user.id)
+      .single()
+      .then(({ data }) => {
+        if (data?.data) {
+          const d = data.data
+          if (d.scores) setScores(d.scores)
+          if (d.bracket) setBracket(d.bracket)
+          if (d.bracketScores) setBracketScores(d.bracketScores)
+          if (d.bracketWinners) setBracketWinners(d.bracketWinners)
+          if (d.penaltyWinners) setPenaltyWinners(d.penaltyWinners)
+          if (data.confirmed) { setConfirmed(true); setLocked(true) }
+        }
+        setLoading(false)
+      })
+  }, [user])
+
+  // Salva automaticamente com debounce de 1s
+  const autoSave = (newState: object) => {
+    if (locked) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      if (!user) return
+      setSaving(true)
+      await supabase.from('predictions').upsert({
+        user_id: user.id,
+        data: newState,
+        confirmed: false,
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
+      setSaving(false)
+    }, 1000)
+  }
 
   const setScore = (gi: number, key: string, val: string) => {
     const newScores = { ...scores, [gi]: { ...scores[gi], [key]: val } }
     setScores(newScores)
-    if (allFilled(gi, newScores)) {
-      checkAndBuildR32(newScores)
-    }
+    const newState = { scores: newScores, bracket, bracketScores, bracketWinners, penaltyWinners }
+    autoSave(newState)
+    if (allFilled(gi, newScores)) checkAndBuildR32(newScores, bracket, bracketScores, bracketWinners, penaltyWinners)
   }
 
-  const checkAndBuildR32 = (newScores: Record<number, Scores>) => {
+  const checkAndBuildR32 = (
+    newScores: Record<number, Scores>,
+    br: Record<string, Team[][]>,
+    bs: Record<string, Scores>,
+    bw: Record<string, (Team | null)[]>,
+    pw: Record<string, (Team | null)[]>
+  ) => {
     const allClassified: Record<number, Team[]> = {}
     for (let gi = 0; gi < 12; gi++) {
-      if (allFilled(gi, newScores)) {
-        allClassified[gi] = computeClassified(gi, newScores)
-      }
+      if (allFilled(gi, newScores)) allClassified[gi] = computeClassified(gi, newScores)
     }
     if (Object.keys(allClassified).length === 12) {
       const c = allClassified
       const pairs: Team[][] = [
-        [c[0]?.[0], c[1]?.[1]],
-        [c[2]?.[0], c[3]?.[1]],
-        [c[4]?.[0], c[5]?.[1]],
-        [c[6]?.[0], c[7]?.[1]],
-        [c[8]?.[0], c[9]?.[1]],
-        [c[10]?.[0], c[11]?.[1]],
-        [c[1]?.[0], c[0]?.[1]],
-        [c[3]?.[0], c[2]?.[1]],
-        [c[5]?.[0], c[4]?.[1]],
-        [c[7]?.[0], c[6]?.[1]],
-        [c[9]?.[0], c[8]?.[1]],
-        [c[11]?.[0], c[10]?.[1]],
-        [c[0]?.[1], c[3]?.[0]],
-        [c[1]?.[1], c[2]?.[0]],
-        [c[4]?.[1], c[7]?.[0]],
-        [c[5]?.[1], c[6]?.[0]],
+        [c[0]?.[0], c[1]?.[1]], [c[2]?.[0], c[3]?.[1]],
+        [c[4]?.[0], c[5]?.[1]], [c[6]?.[0], c[7]?.[1]],
+        [c[8]?.[0], c[9]?.[1]], [c[10]?.[0], c[11]?.[1]],
+        [c[1]?.[0], c[0]?.[1]], [c[3]?.[0], c[2]?.[1]],
+        [c[5]?.[0], c[4]?.[1]], [c[7]?.[0], c[6]?.[1]],
+        [c[9]?.[0], c[8]?.[1]], [c[11]?.[0], c[10]?.[1]],
+        [c[0]?.[1], c[3]?.[0]], [c[1]?.[1], c[2]?.[0]],
+        [c[4]?.[1], c[7]?.[0]], [c[5]?.[1], c[6]?.[0]],
       ]
-      setBracket(prev => ({ ...prev, r32: pairs }))
+      const newBracket = { ...br, r32: pairs }
+      setBracket(newBracket)
+      autoSave({ scores: newScores, bracket: newBracket, bracketScores: bs, bracketWinners: bw, penaltyWinners: pw })
     }
   }
 
   const allGroupsDone = Array.from({ length: 12 }, (_, gi) => allFilled(gi, scores)).every(Boolean)
+  const getClassified = (gi: number): Team[] => allFilled(gi, scores) ? computeClassified(gi, scores) : []
 
-  const getClassified = (gi: number): Team[] => {
-    if (!allFilled(gi, scores)) return []
-    return computeClassified(gi, scores)
-  }
-
-  const updateWinner = (st: string, i: number, winner: Team) => {
-    const newWinners = { ...bracketWinners, [st]: [...(bracketWinners[st] || Array(16).fill(null))] }
+  const updateWinner = (st: string, i: number, winner: Team, currentBW: Record<string, (Team | null)[]>, currentBracket: Record<string, Team[][]>, currentBS: Record<string, Scores>, currentPW: Record<string, (Team | null)[]>) => {
+    const newWinners = { ...currentBW, [st]: [...(currentBW[st] || Array(16).fill(null))] }
     newWinners[st][i] = winner
     setBracketWinners(newWinners)
     const stageCounts: Record<string, number> = { r32: 16, oitavas: 8, quartas: 4, semi: 2 }
     const nextStages: Record<string, string> = { r32: 'oitavas', oitavas: 'quartas', quartas: 'semi', semi: 'final' }
     const count = stageCounts[st]
     const winners = newWinners[st] || []
+    let newBracket = currentBracket
     if (winners.filter(Boolean).length === count) {
       const next = nextStages[st]
-      if (next === 'final') return
-      const pairs: Team[][] = []
-      for (let j = 0; j < count; j += 2) {
-        if (winners[j] && winners[j + 1]) pairs.push([winners[j]!, winners[j + 1]!])
+      if (next !== 'final') {
+        const pairs: Team[][] = []
+        for (let j = 0; j < count; j += 2) {
+          if (winners[j] && winners[j + 1]) pairs.push([winners[j]!, winners[j + 1]!])
+        }
+        newBracket = { ...currentBracket, [next]: pairs }
+        setBracket(newBracket)
       }
-      setBracket(prev => ({ ...prev, [next]: pairs }))
     }
+    autoSave({ scores, bracket: newBracket, bracketScores: currentBS, bracketWinners: newWinners, penaltyWinners: currentPW })
   }
 
   const setBScore = (st: string, i: number, side: string, val: string, ta: Team, tb: Team) => {
     const newBS = { ...bracketScores, [st]: { ...bracketScores[st], [`${i}-${side}`]: val } }
     setBracketScores(newBS)
+    autoSave({ scores, bracket, bracketScores: newBS, bracketWinners, penaltyWinners })
     const s = newBS[st]
     const sa = parseInt(s[`${i}-a`] || '')
     const sb = parseInt(s[`${i}-b`] || '')
     if (!isNaN(sa) && !isNaN(sb)) {
-      if (sa === sb) {
-        setPenaltyModal({ stage: st, idx: i, ta, tb })
-      } else {
-        updateWinner(st, i, sa > sb ? ta : tb)
-      }
+      if (sa === sb) setPenaltyModal({ stage: st, idx: i, ta, tb })
+      else updateWinner(st, i, sa > sb ? ta : tb, bracketWinners, bracket, newBS, penaltyWinners)
     }
   }
 
@@ -153,7 +194,21 @@ export default function Bolao() {
     newPW[st][i] = winner
     setPenaltyWinners(newPW)
     setPenaltyModal(null)
-    updateWinner(st, i, winner)
+    updateWinner(st, i, winner, bracketWinners, bracket, bracketScores, newPW)
+  }
+
+  const handleConfirm = async () => {
+    if (!user) return
+    setSaving(true)
+    await supabase.from('predictions').upsert({
+      user_id: user.id,
+      data: { scores, bracket, bracketScores, bracketWinners, penaltyWinners },
+      confirmed: true,
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
+    setSaving(false)
+    setConfirmed(true)
+    setLocked(true)
   }
 
   const totalGroupMatches = 12 * 6
@@ -165,8 +220,7 @@ export default function Bolao() {
   const progress = Math.round((filledGroupMatches / totalGroupMatches) * 100)
 
   const finalists = (bracketWinners.semi || []).filter(Boolean) as Team[]
-  const ta = finalists[0]
-  const tb = finalists[1]
+  const ta = finalists[0], tb = finalists[1]
   const finalS = bracketScores.final || {}
   const finalSa = parseInt(finalS['0-a'] || '')
   const finalSb = parseInt(finalS['0-b'] || '')
@@ -225,6 +279,15 @@ export default function Bolao() {
     </div>
   )
 
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="text-center">
+        <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <p className="text-gray-400 text-sm">Carregando seu bolão...</p>
+      </div>
+    </div>
+  )
+
   return (
     <div>
       {confirmed && (
@@ -239,6 +302,7 @@ export default function Bolao() {
           <p className="text-gray-400 text-sm">Simule a Copa do Mundo 2026 completa</p>
         </div>
         <div className="flex items-center gap-3">
+          {saving && <span className="text-xs text-gray-400 animate-pulse">💾 Salvando...</span>}
           <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-green-600 rounded-full transition-all" style={{ width: `${progress}%` }}></div>
           </div>
@@ -270,7 +334,6 @@ export default function Bolao() {
                   <span className="font-black text-yellow-400 tracking-widest text-sm" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>GRUPO {g.name}</span>
                   {filled && <span className="text-green-500 text-xs font-bold">✓ COMPLETO</span>}
                 </div>
-
                 {MATCHES.map(([ai, bi]) => {
                   const ta = g.teams[ai], tb = g.teams[bi]
                   const key = `${ai}-${bi}`
@@ -278,9 +341,7 @@ export default function Bolao() {
                   return (
                     <div key={key} className="px-4 py-3 border-b border-gray-100 last:border-0">
                       <div className="flex items-center gap-2">
-                        <span className="flex items-center gap-2 flex-1 text-xs font-medium">
-                          <Flag code={ta.c} />{ta.n}
-                        </span>
+                        <span className="flex items-center gap-2 flex-1 text-xs font-medium"><Flag code={ta.c} />{ta.n}</span>
                         <div className="flex items-center gap-1">
                           <input type="number" min="0" max="20" disabled={cl.length > 0 || locked}
                             value={s[`${key}-a`] || ''} onChange={e => setScore(gi, `${key}-a`, e.target.value)}
@@ -290,14 +351,11 @@ export default function Bolao() {
                             value={s[`${key}-b`] || ''} onChange={e => setScore(gi, `${key}-b`, e.target.value)}
                             className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40 disabled:cursor-not-allowed" />
                         </div>
-                        <span className="flex items-center gap-2 flex-1 justify-end text-xs font-medium">
-                          {tb.n}<Flag code={tb.c} />
-                        </span>
+                        <span className="flex items-center gap-2 flex-1 justify-end text-xs font-medium">{tb.n}<Flag code={tb.c} /></span>
                       </div>
                     </div>
                   )
                 })}
-
                 {cl.length > 0 && (
                   <div className="px-4 py-3 bg-green-50 border-t border-green-100">
                     <p className="text-xs text-green-700 font-bold mb-2">🏆 CLASSIFICADOS</p>
@@ -310,7 +368,6 @@ export default function Bolao() {
                     </div>
                   </div>
                 )}
-
                 {!filled && (
                   <div className="px-4 py-2">
                     <div className="w-full py-2 bg-gray-100 text-gray-400 text-xs font-bold tracking-widest text-center rounded">
@@ -341,9 +398,9 @@ export default function Bolao() {
               <h2 className="font-black text-4xl tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{champion.n}</h2>
               <p className="text-green-600 text-sm font-semibold tracking-wider mb-8">Copa do Mundo 2026 — USA · CAN · MEX</p>
               {!confirmed && !locked && (
-                <button onClick={() => { setConfirmed(true); setLocked(true) }}
-                  className="bg-green-600 text-white font-bold px-10 py-3 rounded-xl text-sm tracking-widest hover:bg-green-700 transition">
-                  CONFIRMAR MEU BOLÃO
+                <button onClick={handleConfirm} disabled={saving}
+                  className="bg-green-600 text-white font-bold px-10 py-3 rounded-xl text-sm tracking-widest hover:bg-green-700 transition disabled:opacity-50">
+                  {saving ? 'SALVANDO...' : 'CONFIRMAR MEU BOLÃO'}
                 </button>
               )}
               {confirmed && <p className="text-green-600 font-semibold text-sm">✓ Bolão confirmado!</p>}
