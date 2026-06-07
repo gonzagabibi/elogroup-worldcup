@@ -374,7 +374,7 @@ export default function Bolao() {
               tab.locked ? 'border-transparent text-gray-300 cursor-not-allowed' :
               'border-transparent text-gray-400 hover:text-black'
             }`}>
-            {tab.label} {tab.locked ? '[L]' : ''}
+            {tab.label} {tab.locked ? '🔒' : ''}
           </button>
         ))}
       </div>
@@ -488,8 +488,8 @@ export default function Bolao() {
             <p className="text-gray-400 text-sm text-center">Complete a semifinal primeiro.</p>
           ) : champion ? (
             <div className="text-center py-10">
-              <div className="w-24 h-24 rounded-full border-4 border-yellow-400 flex items-center justify-center text-5xl mx-auto mb-4 bg-yellow-50">T</div>
-              <div className="text-yellow-400 text-2xl tracking-widest mb-3">* * * * *</div>
+              <div className="w-24 h-24 rounded-full border-4 border-yellow-400 flex items-center justify-center text-5xl mx-auto mb-4 bg-yellow-50">🏆</div>
+              <div className="text-yellow-400 text-2xl tracking-widest mb-3">★★★★★</div>
               <p className="text-xs font-bold tracking-widest text-gray-400 mb-3">SEU CAMPEÃO DO MUNDO</p>
               <div className="flex justify-center mb-3"><Flag code={champion.c} size="xl" /></div>
               <h2 className="font-black text-4xl tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{champion.n}</h2>
@@ -536,14 +536,14 @@ export default function Bolao() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center">
             <div className="text-3xl mb-2">P</div>
-            <h3 className="font-black text-lg tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>PENALTIS!</h3>
-            <p className="text-xs text-gray-400 mb-5">Empate no tempo normal - quem vence nos penaltis?</p>
+            <h3 className="font-black text-lg tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>PÊNALTIS! 🥅</h3>
+            <p className="text-xs text-gray-400 mb-5">Empate no tempo normal - quem vence nos pênaltis?</p>
             <div className="flex flex-col gap-3">
               {[penaltyModal.ta, penaltyModal.tb].map(team => (
                 <button key={team.n} onClick={() => confirmPenalty(team)}
                   className="flex items-center gap-3 p-3 rounded-xl border-2 border-gray-200 hover:border-yellow-400 hover:bg-yellow-50 text-sm font-medium transition">
                   <Flag code={team.c} />{team.n}
-                  <span className="ml-auto text-xs text-gray-400">vence nos penaltis</span>
+                  <span className="ml-auto text-xs text-gray-400">vence nos pênaltis →</span>
                 </button>
               ))}
             </div>
