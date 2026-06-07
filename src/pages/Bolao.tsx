@@ -21,13 +21,14 @@ const MATCHES = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]]
 
 type Team = { n: string; c: string }
 type Scores = Record<string, string>
+type Standing = { team: Team; pts: number; saldo: number; gf: number; groupName: string }
 
 function Flag({ code, size = 'md' }: { code: string; size?: 'sm' | 'md' | 'lg' | 'xl' }) {
   const sizes = { sm: '1rem', md: '1.4rem', lg: '2rem', xl: '5rem' }
   return <span className={`fi fi-${code} rounded-sm`} style={{ fontSize: sizes[size], lineHeight: 1, flexShrink: 0 }}></span>
 }
 
-function computeClassified(gi: number, scores: Record<number, Scores>): Team[] {
+function computeStandings(gi: number, scores: Record<number, Scores>): Standing[] {
   const group = GROUPS[gi]
   const s = scores[gi] || {}
   const standings = group.teams.map((team, ti) => {
@@ -39,14 +40,18 @@ function computeClassified(gi: number, scores: Record<number, Scores>): Team[] {
       if (ti === a) { gf += sa; gc += sb; if (sa > sb) pts += 3; else if (sa === sb) pts += 1 }
       if (ti === b) { gf += sb; gc += sa; if (sb > sa) pts += 3; else if (sa === sb) pts += 1 }
     })
-    return { team, pts, saldo: gf - gc, gf }
+    return { team, pts, saldo: gf - gc, gf, groupName: group.name }
   })
   standings.sort((a, b) =>
     b.pts !== a.pts ? b.pts - a.pts :
     b.saldo !== a.saldo ? b.saldo - a.saldo :
     b.gf - a.gf
   )
-  return standings.slice(0, 2).map(s => s.team)
+  return standings
+}
+
+function computeClassified(gi: number, scores: Record<number, Scores>): Team[] {
+  return computeStandings(gi, scores).slice(0, 2).map(s => s.team)
 }
 
 function allFilled(gi: number, scores: Record<number, Scores>): boolean {
@@ -57,11 +62,67 @@ function allFilled(gi: number, scores: Record<number, Scores>): boolean {
   )
 }
 
+// Tabela oficial FIFA 2026 Annex C (primeiras combinações)
+// Chave = grupos dos 8 terceiros ordenados alfabeticamente
+// Valor = [3° vs 1A, 3° vs 1B, 3° vs 1D, 3° vs 1E, 3° vs 1G, 3° vs 1I, 3° vs 1K, 3° vs 1L]
+const FIFA_THIRD_TABLE: Record<string, string[]> = {
+  'EFGHIJKL': ['3E','3J','3I','3F','3H','3G','3L','3K'],
+  'DFGHIJKL': ['3H','3G','3I','3D','3J','3F','3L','3K'],
+  'DEGHIJKL': ['3E','3J','3I','3D','3H','3G','3L','3K'],
+  'DEFHIJKL': ['3E','3J','3I','3D','3H','3F','3L','3K'],
+  'DEFGIJKL': ['3E','3G','3I','3D','3J','3F','3L','3K'],
+  'DEFGHJKL': ['3E','3G','3J','3D','3H','3F','3L','3K'],
+  'DEFGHIKL': ['3E','3G','3I','3D','3H','3F','3L','3K'],
+  'DEFGHIJL': ['3E','3G','3J','3D','3H','3F','3L','3I'],
+  'DEFGHIJK': ['3E','3G','3J','3D','3H','3F','3I','3K'],
+  'CFGHIJKL': ['3H','3G','3I','3C','3J','3F','3L','3K'],
+  'CEGHIJKL': ['3E','3G','3I','3C','3J','3F','3L','3K'],
+  'CEFHIJKL': ['3E','3H','3I','3C','3J','3F','3L','3K'],
+  'CEFGIJKL': ['3E','3G','3I','3C','3J','3F','3L','3K'],
+  'CEFGHJKL': ['3E','3G','3J','3C','3H','3F','3L','3K'],
+  'CEFGHIKL': ['3E','3G','3I','3C','3H','3F','3L','3K'],
+  'CEFGHIJL': ['3E','3G','3J','3C','3H','3F','3L','3I'],
+  'CEFGHIJK': ['3E','3G','3J','3C','3H','3F','3I','3K'],
+}
+
+function buildR32(allClassified: Record<number, Team[]>, allThirds: Standing[]): (Team | null)[][] {
+  const sorted = [...allThirds].sort((a, b) =>
+    b.pts !== a.pts ? b.pts - a.pts :
+    b.saldo !== a.saldo ? b.saldo - a.saldo :
+    b.gf - a.gf
+  )
+  const best8 = sorted.slice(0, 8)
+  const best8Key = best8.map(t => t.groupName).sort().join('')
+  const thirdMap = FIFA_THIRD_TABLE[best8Key] || ['3E','3G','3J','3D','3H','3F','3I','3K']
+  const thirds = best8.reduce((acc, t) => ({ ...acc, [`3${t.groupName}`]: t.team }), {} as Record<string, Team>)
+  const resolve = (slot: string): Team | null => thirds[slot] || null
+  const c = allClassified
+
+  return [
+    [c[0]?.[1], c[1]?.[1]],           // M73: 2A vs 2B
+    [c[4]?.[0], resolve(thirdMap[3])], // M74: 1E vs 3°
+    [c[5]?.[0], c[2]?.[1]],           // M75: 1F vs 2C
+    [c[2]?.[0], c[5]?.[1]],           // M76: 1C vs 2F
+    [c[8]?.[0], resolve(thirdMap[5])], // M77: 1I vs 3°
+    [c[4]?.[1], c[8]?.[1]],           // M78: 2E vs 2I
+    [c[0]?.[0], resolve(thirdMap[0])], // M79: 1A vs 3°
+    [c[11]?.[0], resolve(thirdMap[7])],// M80: 1L vs 3°
+    [c[3]?.[0], resolve(thirdMap[2])], // M81: 1D vs 3°
+    [c[6]?.[0], resolve(thirdMap[4])], // M82: 1G vs 3°
+    [c[10]?.[1], c[11]?.[1]],         // M83: 2K vs 2L
+    [c[7]?.[0], c[9]?.[1]],           // M84: 1H vs 2J
+    [c[1]?.[0], resolve(thirdMap[1])], // M85: 1B vs 3°
+    [c[9]?.[0], c[7]?.[1]],           // M86: 1J vs 2H
+    [c[10]?.[0], resolve(thirdMap[6])],// M87: 1K vs 3°
+    [c[3]?.[1], c[6]?.[1]],           // M88: 2D vs 2G
+  ]
+}
+
 export default function Bolao() {
   const { user } = useAuth()
   const [stage, setStage] = useState('grupos')
   const [scores, setScores] = useState<Record<number, Scores>>({})
-  const [bracket, setBracket] = useState<Record<string, Team[][]>>({})
+  const [bracket, setBracket] = useState<Record<string, (Team | null)[][]>>({})
   const [bracketScores, setBracketScores] = useState<Record<string, Scores>>({})
   const [bracketWinners, setBracketWinners] = useState<Record<string, (Team | null)[]>>({})
   const [penaltyWinners, setPenaltyWinners] = useState<Record<string, (Team | null)[]>>({})
@@ -118,41 +179,25 @@ export default function Bolao() {
 
   const checkAndBuildR32 = (newScores: Record<number, Scores>) => {
     const allClassified: Record<number, Team[]> = {}
+    const allThirds: Standing[] = []
     for (let gi = 0; gi < 12; gi++) {
-      if (allFilled(gi, newScores)) allClassified[gi] = computeClassified(gi, newScores)
+      if (!allFilled(gi, newScores)) return
+      const standings = computeStandings(gi, newScores)
+      allClassified[gi] = standings.slice(0, 2).map(s => s.team)
+      allThirds.push(standings[2])
     }
-    if (Object.keys(allClassified).length === 12) {
-      const c = allClassified
-      const pairs: Team[][] = [
-        [c[0]?.[0], c[1]?.[1]],   // 1A vs 2B
-        [c[1]?.[0], c[0]?.[1]],   // 1B vs 2A
-        [c[2]?.[0], c[3]?.[1]],   // 1C vs 2D
-        [c[3]?.[0], c[2]?.[1]],   // 1D vs 2C
-        [c[4]?.[0], c[5]?.[1]],   // 1E vs 2F
-        [c[5]?.[0], c[4]?.[1]],   // 1F vs 2E
-        [c[6]?.[0], c[7]?.[1]],   // 1G vs 2H
-        [c[7]?.[0], c[6]?.[1]],   // 1H vs 2G
-        [c[8]?.[0], c[9]?.[1]],   // 1I vs 2J
-        [c[9]?.[0], c[8]?.[1]],   // 1J vs 2I
-        [c[10]?.[0], c[11]?.[1]], // 1K vs 2L
-        [c[11]?.[0], c[10]?.[1]], // 1L vs 2K
-        [c[0]?.[1], c[2]?.[0]],   // 2A vs 1C
-        [c[1]?.[1], c[3]?.[0]],   // 2B vs 1D
-        [c[4]?.[1], c[6]?.[0]],   // 2E vs 1G
-        [c[5]?.[1], c[7]?.[0]],   // 2F vs 1H
-      ]
-      setBracket(prev => {
-        const newBracket = { ...prev, r32: pairs }
-        autoSave({ scores: newScores, bracket: newBracket, bracketScores, bracketWinners, penaltyWinners })
-        return newBracket
-      })
-    }
+    const pairs = buildR32(allClassified, allThirds)
+    setBracket(prev => {
+      const newBracket = { ...prev, r32: pairs }
+      autoSave({ scores: newScores, bracket: newBracket, bracketScores, bracketWinners, penaltyWinners })
+      return newBracket
+    })
   }
 
   const allGroupsDone = Array.from({ length: 12 }, (_, gi) => allFilled(gi, scores)).every(Boolean)
   const getClassified = (gi: number): Team[] => allFilled(gi, scores) ? computeClassified(gi, scores) : []
 
-  const updateWinner = (st: string, i: number, winner: Team, currentBW: Record<string, (Team | null)[]>, currentBracket: Record<string, Team[][]>, currentBS: Record<string, Scores>, currentPW: Record<string, (Team | null)[]>) => {
+  const updateWinner = (st: string, i: number, winner: Team, currentBW: Record<string, (Team | null)[]>, currentBracket: Record<string, (Team | null)[][]>, currentBS: Record<string, Scores>, currentPW: Record<string, (Team | null)[]>) => {
     const newWinners = { ...currentBW, [st]: [...(currentBW[st] || Array(16).fill(null))] }
     newWinners[st][i] = winner
     setBracketWinners(newWinners)
@@ -262,11 +307,11 @@ export default function Bolao() {
             </span>
             <div className="flex items-center gap-1 flex-shrink-0">
               <input type="number" min="0" max="20" disabled={locked}
-                value={sa} onChange={e => setBScore(st, i, 'a', e.target.value, ta, tb)}
+                value={sa} onChange={e => setBScore(st, i, 'a', e.target.value, ta as Team, tb as Team)}
                 className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40" />
               <span className="text-gray-300 text-xs">×</span>
               <input type="number" min="0" max="20" disabled={locked}
-                value={sb} onChange={e => setBScore(st, i, 'b', e.target.value, ta, tb)}
+                value={sb} onChange={e => setBScore(st, i, 'b', e.target.value, ta as Team, tb as Team)}
                 className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40" />
             </div>
             <span className={`flex items-center gap-2 flex-1 justify-end text-sm font-medium ${w?.n === tb.n ? 'text-green-600 font-bold' : ''}`}>
@@ -328,6 +373,8 @@ export default function Bolao() {
           {GROUPS.map((g, gi) => {
             const cl = getClassified(gi)
             const filled = allFilled(gi, scores)
+            const standings = filled ? computeStandings(gi, scores) : []
+            const third = standings[2]
             return (
               <div key={gi} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="bg-black px-4 py-2 flex items-center justify-between">
@@ -366,6 +413,15 @@ export default function Bolao() {
                         </span>
                       ))}
                     </div>
+                    {third && (
+                      <div className="mt-2">
+                        <p className="text-xs text-gray-400 font-bold mb-1">3º COLOCADO</p>
+                        <span className="flex items-center gap-1.5 border border-gray-300 text-gray-500 text-xs font-semibold px-2 py-1 rounded w-fit">
+                          <Flag code={third.team.c} size="sm" />{third.team.n}
+                          <span className="text-gray-400">({third.pts}pts, saldo {third.saldo > 0 ? '+' : ''}{third.saldo})</span>
+                        </span>
+                      </div>
+                    )}
                   </div>
                 )}
                 {!filled && (
