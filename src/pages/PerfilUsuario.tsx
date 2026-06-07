@@ -179,6 +179,27 @@ export default function PerfilUsuario({ userId, onBack }: { userId: string; onBa
           </div>
         </>
       )}
+      {/* Bolão dos Craques */}
+      {bolao.craques && Object.keys(bolao.craques).length > 0 && (
+        <>
+          <h2 className="font-black text-lg tracking-widest mb-3 mt-6" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>BOLÃO DOS CRAQUES</h2>
+          <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="bg-black px-4 py-2">
+              <span className="text-yellow-400 font-black tracking-widest text-xs" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>GOLS APOSTADOS</span>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {Object.entries(bolao.craques).map(([nome, gols]: [string, any]) => (
+                <div key={nome} className="flex items-center justify-between px-4 py-3">
+                  <span className="text-sm font-medium">{nome}</span>
+                  <span className="font-black text-green-600" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+                    {gols} {parseInt(gols) === 1 ? 'gol' : 'gols'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </div>
   )
 }
