@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
 
@@ -26,6 +26,8 @@ export default function BolãoCraques() {
   const [confirmed, setConfirmed] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [fullData, setFullData] = useState<any>(null)
+  const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => { load() }, [])
 
@@ -36,32 +38,44 @@ export default function BolãoCraques() {
       .eq('user_id', user!.id)
       .single()
 
-    if (data?.data?.craques) {
-      setPalpites(data.data.craques)
+    if (data?.data) {
+      setFullData(data.data)
+      if (data.data.craques) setPalpites(data.data.craques)
       if (data.data.craquesConfirmed) setConfirmed(true)
     }
     setLoading(false)
   }
 
+  const autoSave = (newPalpites: Record<string, string>, currentData: any) => {
+    if (confirmed) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
+    saveTimer.current = setTimeout(async () => {
+      setSaving(true)
+      await supabase.from('predictions').upsert({
+        user_id: user!.id,
+        data: { ...currentData, craques: newPalpites },
+        updated_at: new Date().toISOString(),
+      }, { onConflict: 'user_id' })
+      setSaving(false)
+    }, 1000)
+  }
+
   const handleChange = (name: string, val: string) => {
     if (confirmed) return
     const num = val.replace(/\D/g, '')
-    if (parseInt(num) > 20) return
-    setPalpites(prev => ({ ...prev, [name]: num }))
+    if (num !== '' && parseInt(num) > 20) return
+    const newPalpites = { ...palpites, [name]: num }
+    setPalpites(newPalpites)
+    autoSave(newPalpites, fullData)
   }
 
   const handleConfirm = async () => {
     setSaving(true)
-    const { data } = await supabase
-      .from('predictions')
-      .select('data')
-      .eq('user_id', user!.id)
-      .single()
-
-    await supabase.from('predictions').update({
-      data: { ...data?.data, craques: palpites, craquesConfirmed: true }
-    }).eq('user_id', user!.id)
-
+    await supabase.from('predictions').upsert({
+      user_id: user!.id,
+      data: { ...fullData, craques: palpites, craquesConfirmed: true },
+      updated_at: new Date().toISOString(),
+    }, { onConflict: 'user_id' })
     setSaving(false)
     setConfirmed(true)
   }
@@ -88,7 +102,6 @@ export default function BolãoCraques() {
         </div>
       )}
 
-      {/* Resumo */}
       <div className="grid grid-cols-2 gap-3 mb-6">
         <div className="bg-green-50 rounded-xl p-4 text-center">
           <p className="font-black text-3xl text-green-600" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{totalGols}</p>
@@ -102,7 +115,8 @@ export default function BolãoCraques() {
         </div>
       </div>
 
-      {/* Lista de craques */}
+      {saving && <p className="text-xs text-gray-400 text-center mb-3 animate-pulse">💾 Salvando...</p>}
+
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
         <div className="bg-black px-4 py-2">
           <span className="text-yellow-400 font-black tracking-widest text-sm" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
@@ -132,9 +146,7 @@ export default function BolãoCraques() {
               </div>
               {palpites[craque.n] !== undefined && palpites[craque.n] !== '' && (
                 <span className="text-xs font-bold text-green-600 w-12 text-right">
-                  {parseInt(palpites[craque.n]) === 0 ? '0 gols' :
-                   parseInt(palpites[craque.n]) === 1 ? '1 gol' :
-                   `${palpites[craque.n]} gols`}
+                  {parseInt(palpites[craque.n]) === 1 ? '1 gol' : `${palpites[craque.n]} gols`}
                 </span>
               )}
             </div>
