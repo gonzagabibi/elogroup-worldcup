@@ -16,7 +16,6 @@ const GROUPS = [
   { name:'K', teams:[{n:'Portugal',c:'pt'},{n:'Congo (RD)',c:'cd'},{n:'Uzbequistão',c:'uz'},{n:'Colômbia',c:'co'}] },
   { name:'L', teams:[{n:'Inglaterra',c:'gb-eng'},{n:'Croácia',c:'hr'},{n:'Gana',c:'gh'},{n:'Panamá',c:'pa'}] },
 ]
-
 const MATCHES = [[0,1],[0,2],[0,3],[1,2],[1,3],[2,3]]
 
 const CATEGORIES = [
@@ -31,7 +30,7 @@ function getCategory(percentile: number) {
   return CATEGORIES.find(c => percentile >= c.min && percentile < c.max) || CATEGORIES[4]
 }
 
-function getBadges(data: any, points: number, exactHits: number): string[] {
+function getBadges(data: any, exactHits: number): string[] {
   const badges: string[] = []
   if (!data) return badges
   const bw = data.bracketWinners || {}
@@ -39,19 +38,15 @@ function getBadges(data: any, points: number, exactHits: number): string[] {
   if (champion?.c === 'br') badges.push('🇧🇷 Patriota')
   if (Object.keys(data.scores || {}).length === 12 && champion) badges.push('✅ Completo')
   if (exactHits >= 5) badges.push('🔮 Vidente')
-  if (points > 200) badges.push('🔥 Em Chamas')
   return badges
 }
 
 function calcPointsFromResults(data: any, results: any[]): { total: number; byStage: Record<string, number>; exactHits: number } {
   if (!data) return { total: 0, byStage: {}, exactHits: 0 }
-
   const scores = data.scores || {}
-  let total = 0
-  let exactHits = 0
+  let total = 0, exactHits = 0
   const byStage: Record<string, number> = { grupos: 0, r32: 0, oitavas: 0, quartas: 0, semi: 0, final: 0 }
 
-  // Calcula pontos dos grupos comparando com resultados reais
   for (let gi = 0; gi < GROUPS.length; gi++) {
     const g = GROUPS[gi]
     const s = scores[gi] || {}
@@ -60,36 +55,20 @@ function calcPointsFromResults(data: any, results: any[]): { total: number; bySt
       const userA = parseInt(s[`${key}-a`] ?? '')
       const userB = parseInt(s[`${key}-b`] ?? '')
       if (isNaN(userA) || isNaN(userB)) continue
-
       const result = results.find(r => r.id === `group-${g.name}-${ai}-${bi}`)
-      if (!result || !result.played) continue
-
-      const realA = result.score_home
-      const realB = result.score_away
-
-      // Multiplicador por grupo (zebra = maior pontuação)
-      const isZebra = (ai > 0 && bi > 0) // times menos favoritos
+      if (!result?.played) continue
+      const realA = result.score_home, realB = result.score_away
+      const isZebra = ai > 0 && bi > 0
       const mult = isZebra ? 1.5 : 1.0
-
       if (userA === realA && userB === realB) {
-        // Placar exato
-        const pts = Math.round(5 * mult)
-        total += pts
-        byStage['grupos'] += pts
-        exactHits++
+        const pts = Math.round(5 * mult); total += pts; byStage['grupos'] += pts; exactHits++
       } else {
-        // Vencedor certo
-        const userWinner = userA > userB ? 'home' : userA < userB ? 'away' : 'draw'
-        const realWinner = realA > realB ? 'home' : realA < realB ? 'away' : 'draw'
-        if (userWinner === realWinner) {
-          const pts = Math.round(2 * mult)
-          total += pts
-          byStage['grupos'] += pts
-        }
+        const userW = userA > userB ? 'h' : userA < userB ? 'a' : 'd'
+        const realW = realA > realB ? 'h' : realA < realB ? 'a' : 'd'
+        if (userW === realW) { const pts = Math.round(2 * mult); total += pts; byStage['grupos'] += pts }
       }
     }
   }
-
   return { total, byStage, exactHits }
 }
 
@@ -105,7 +84,7 @@ type Player = {
   exactHits: number
 }
 
-export default function Ranking() {
+export default function Ranking({ onViewPerfil }: { onViewPerfil: (userId: string) => void }) {
   const { user } = useAuth()
   const [players, setPlayers] = useState<Player[]>([])
   const [loading, setLoading] = useState(true)
@@ -118,7 +97,6 @@ export default function Ranking() {
       supabase.from('predictions').select('user_id, data, confirmed'),
       supabase.from('match_results').select('*').eq('played', true),
     ])
-
     if (!predictions) { setLoading(false); return }
 
     const ranked: Player[] = predictions.map(row => {
@@ -130,7 +108,7 @@ export default function Ranking() {
         nome: row.data?.nome || 'Participante',
         points: total,
         confirmed: row.confirmed,
-        badges: getBadges(row.data, total, exactHits),
+        badges: getBadges(row.data, exactHits),
         category: getCategory(0),
         byStage,
         champion,
@@ -139,13 +117,11 @@ export default function Ranking() {
     })
 
     ranked.sort((a, b) => b.points - a.points)
-
     const total = ranked.length
     const withCategory = ranked.map((p, i) => ({
       ...p,
       category: getCategory(total <= 1 ? 0 : (i / (total - 1)) * 100),
     }))
-
     setPlayers(withCategory)
     setLoading(false)
   }
@@ -167,10 +143,7 @@ export default function Ranking() {
 
   if (loading) return (
     <div className="flex items-center justify-center py-20">
-      <div className="text-center">
-        <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
-        <p className="text-gray-400 text-sm">Carregando ranking...</p>
-      </div>
+      <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin mx-auto"></div>
     </div>
   )
 
@@ -182,13 +155,14 @@ export default function Ranking() {
       </div>
 
       {me && (
-        <div className="bg-black text-white rounded-xl p-4 mb-6 flex items-center gap-4">
+        <div className="bg-black text-white rounded-xl p-4 mb-6 flex items-center gap-4 cursor-pointer hover:bg-gray-900 transition"
+          onClick={() => onViewPerfil(me.id)}>
           <div className="w-12 h-12 rounded-full bg-yellow-400 flex items-center justify-center text-black font-black text-lg" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
             #{myPosition || '?'}
           </div>
           <div className="flex-1">
-            <p className="text-xs text-gray-400 mb-0.5">SUA POSIÇÃO</p>
-            <p className="font-bold">{me.nome} (você)</p>
+            <p className="text-xs text-gray-400 mb-0.5">SUA POSIÇÃO — clique para ver seu bolão</p>
+            <p className="font-bold">{me.nome}</p>
             <div className="flex gap-2 mt-1 flex-wrap">
               <span className={`text-xs px-2 py-0.5 rounded font-bold ${me.category.color}`}>{me.category.label}</span>
               {me.badges.map(b => <span key={b} className="text-xs bg-white/10 px-2 py-0.5 rounded">{b}</span>)}
@@ -232,7 +206,9 @@ export default function Ranking() {
               const isMe = player.id === user?.id
               const pos = i + 1
               return (
-                <div key={player.id} className={`flex items-center gap-4 px-6 py-4 ${isMe ? 'bg-green-50' : ''}`}>
+                <div key={player.id}
+                  className={`flex items-center gap-4 px-6 py-4 cursor-pointer hover:bg-gray-50 transition ${isMe ? 'bg-green-50 hover:bg-green-100' : ''}`}
+                  onClick={() => onViewPerfil(player.id)}>
                   <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${
                     pos === 1 ? 'bg-yellow-400 text-black' :
                     pos === 2 ? 'bg-gray-300 text-black' :
@@ -263,13 +239,14 @@ export default function Ranking() {
                     <p className="text-xs text-gray-400">pts</p>
                     {player.exactHits > 0 && <p className="text-xs text-yellow-500">{player.exactHits} exatos</p>}
                   </div>
+                  <span className="text-gray-300 text-xs">→</span>
                 </div>
               )
             })}
           </div>
         )}
       </div>
-      <p className="text-xs text-gray-400 text-center mt-4">Ranking atualizado em tempo real conforme os jogos acontecem</p>
+      <p className="text-xs text-gray-400 text-center mt-4">Clique em qualquer participante para ver o bolão completo</p>
     </div>
   )
 }

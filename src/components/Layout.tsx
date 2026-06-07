@@ -10,6 +10,15 @@ interface LayoutProps {
 export default function Layout({ children, currentPage, onNavigate }: LayoutProps) {
   const { user, signOut } = useAuth()
 
+  const navItems = [
+    { id: 'dashboard', label: 'DASHBOARD' },
+    { id: 'bolao', label: 'MEU BOLÃO' },
+    { id: 'craques', label: 'CRAQUES' },
+    { id: 'performance', label: 'PERFORMANCE' },
+    { id: 'ranking', label: 'RANKING' },
+    { id: 'pontuacao', label: 'PONTUAÇÃO' },
+  ]
+
   return (
     <div className="min-h-screen bg-gray-50">
       <div className="h-1 bg-green-600"></div>
@@ -26,17 +35,12 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
         </div>
       </header>
       <nav className="bg-white border-b border-gray-200 px-6 flex sticky top-14 z-40 overflow-x-auto">
-        {[
-          { id: 'dashboard', label: 'DASHBOARD' },
-          { id: 'bolao', label: 'MEU BOLÃO' },
-          { id: 'ranking', label: 'RANKING' },
-          { id: 'pontuacao', label: 'PONTUAÇÃO' },
-        ].map(item => (
+        {navItems.map(item => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}
             className={`px-5 py-4 text-xs font-semibold tracking-widest border-b-2 transition whitespace-nowrap ${
-              currentPage === item.id
+              currentPage === item.id || (currentPage === 'perfil' && item.id === 'ranking')
                 ? 'border-yellow-400 text-black'
                 : 'border-transparent text-gray-400 hover:text-black'
             }`}
@@ -45,9 +49,9 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
           </button>
         ))}
       </nav>
-      <main className="max-w-6xl mx-auto px-6 py-6">{children}</main>
-      <div className="h-1 bg-yellow-400"></div>
-      <div className="h-1 bg-green-600"></div>
+      <main className="max-w-6xl mx-auto px-6 py-8">
+        {children}
+      </main>
     </div>
   )
 }
