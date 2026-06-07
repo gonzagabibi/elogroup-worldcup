@@ -1,4 +1,3 @@
-cat > src/pages/Bolao.tsx << 'ENDOFFILE'
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
@@ -301,7 +300,7 @@ export default function Bolao() {
         const ta = pair?.[0], tb = pair?.[1]
         if (!ta || !tb) return (
           <div key={i} className="bg-gray-50 border border-gray-200 rounded-xl p-4 opacity-40">
-            <span className="text-xs text-gray-400">⏳ A definir</span>
+            <span className="text-xs text-gray-400">A definir</span>
           </div>
         )
         const s = bracketScores[st] || {}
@@ -314,20 +313,20 @@ export default function Bolao() {
           <div key={i} className={`bg-white border rounded-xl p-4 flex items-center gap-3 ${isTie ? 'border-yellow-300' : 'border-gray-200'}`}>
             <span className={`flex items-center gap-2 flex-1 text-sm font-medium ${w?.n === ta.n ? 'text-green-600 font-bold' : ''}`}>
               <Flag code={ta.c} />{ta.n}
-              {w?.n === ta.n && <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">✓</span>}
+              {w?.n === ta.n && <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">v</span>}
               {penW?.n === ta.n && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold">PEN</span>}
             </span>
             <div className="flex items-center gap-1 flex-shrink-0">
               <input type="number" min="0" max="20" disabled={locked}
                 value={sa} onChange={e => setBScore(st, i, 'a', e.target.value, ta as Team, tb as Team)}
                 className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40" />
-              <span className="text-gray-300 text-xs">×</span>
+              <span className="text-gray-300 text-xs">x</span>
               <input type="number" min="0" max="20" disabled={locked}
                 value={sb} onChange={e => setBScore(st, i, 'b', e.target.value, ta as Team, tb as Team)}
                 className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40" />
             </div>
             <span className={`flex items-center gap-2 flex-1 justify-end text-sm font-medium ${w?.n === tb.n ? 'text-green-600 font-bold' : ''}`}>
-              {w?.n === tb.n && <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">✓</span>}
+              {w?.n === tb.n && <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">v</span>}
               {penW?.n === tb.n && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold">PEN</span>}
               {tb.n}<Flag code={tb.c} />
             </span>
@@ -350,7 +349,7 @@ export default function Bolao() {
     <div>
       {confirmed && (
         <div className="bg-green-600 text-white text-center py-3 px-6 rounded-xl mb-6 font-semibold tracking-wider">
-          🎉 Bolão confirmado! Boa sorte na Copa! 🌍
+          Bolão confirmado! Boa sorte na Copa!
         </div>
       )}
       <div className="flex items-center justify-between mb-4">
@@ -359,7 +358,7 @@ export default function Bolao() {
           <p className="text-gray-400 text-sm">Simule a Copa do Mundo 2026 completa</p>
         </div>
         <div className="flex items-center gap-3">
-          {saving && <span className="text-xs text-gray-400 animate-pulse">💾 Salvando...</span>}
+          {saving && <span className="text-xs text-gray-400 animate-pulse">Salvando...</span>}
           <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-green-600 rounded-full transition-all" style={{ width: `${progress}%` }}></div>
           </div>
@@ -375,7 +374,7 @@ export default function Bolao() {
               tab.locked ? 'border-transparent text-gray-300 cursor-not-allowed' :
               'border-transparent text-gray-400 hover:text-black'
             }`}>
-            {tab.label} {tab.locked ? '🔒' : ''}
+            {tab.label} {tab.locked ? '[L]' : ''}
           </button>
         ))}
       </div>
@@ -391,7 +390,7 @@ export default function Bolao() {
               <div key={gi} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
                 <div className="bg-black px-4 py-2 flex items-center justify-between">
                   <span className="font-black text-yellow-400 tracking-widest text-sm" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>GRUPO {g.name}</span>
-                  {filled && <span className="text-green-500 text-xs font-bold">✓ COMPLETO</span>}
+                  {filled && <span className="text-green-500 text-xs font-bold">COMPLETO</span>}
                 </div>
                 {MATCHES.map(([ai, bi]) => {
                   const ta = g.teams[ai], tb = g.teams[bi]
@@ -405,7 +404,7 @@ export default function Bolao() {
                           <input type="number" min="0" max="20" disabled={locked}
                             value={s[`${key}-a`] || ''} onChange={e => setScore(gi, `${key}-a`, e.target.value)}
                             className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40 disabled:cursor-not-allowed" />
-                          <span className="text-gray-300 text-xs">×</span>
+                          <span className="text-gray-300 text-xs">x</span>
                           <input type="number" min="0" max="20" disabled={locked}
                             value={s[`${key}-b`] || ''} onChange={e => setScore(gi, `${key}-b`, e.target.value)}
                             className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40 disabled:cursor-not-allowed" />
@@ -417,17 +416,17 @@ export default function Bolao() {
                 })}
                 {cl.length > 0 && (
                   <div className="px-4 py-3 bg-green-50 border-t border-green-100">
-                    <p className="text-xs text-green-700 font-bold mb-2">🏆 CLASSIFICADOS</p>
+                    <p className="text-xs text-green-700 font-bold mb-2">CLASSIFICADOS</p>
                     <div className="flex gap-2 flex-wrap">
                       {cl.map(t => (
                         <span key={t.n} className="flex items-center gap-1.5 border border-green-600 text-green-600 text-xs font-semibold px-2 py-1 rounded bg-green-50">
-                          <Flag code={t.c} size="sm" />{t.n} ✓
+                          <Flag code={t.c} size="sm" />{t.n}
                         </span>
                       ))}
                     </div>
                     {third && (
                       <div className="mt-2">
-                        <p className="text-xs text-gray-400 font-bold mb-1">3º COLOCADO</p>
+                        <p className="text-xs text-gray-400 font-bold mb-1">3 COLOCADO</p>
                         <span className="flex items-center gap-1.5 border border-gray-300 text-gray-500 text-xs font-semibold px-2 py-1 rounded w-fit">
                           <Flag code={third.team.c} size="sm" />{third.team.n}
                           <span className="text-gray-400 font-normal">({third.pts}pts, saldo {third.saldo > 0 ? '+' : ''}{third.saldo})</span>
@@ -459,19 +458,19 @@ export default function Bolao() {
             <p className="text-gray-400 text-sm text-center">Complete a semifinal primeiro.</p>
           ) : champion ? (
             <div className="text-center py-10">
-              <div className="w-24 h-24 rounded-full border-4 border-yellow-400 flex items-center justify-center text-5xl mx-auto mb-4 bg-yellow-50">🏆</div>
-              <div className="text-yellow-400 text-2xl tracking-widest mb-3">★★★★★</div>
+              <div className="w-24 h-24 rounded-full border-4 border-yellow-400 flex items-center justify-center text-5xl mx-auto mb-4 bg-yellow-50">T</div>
+              <div className="text-yellow-400 text-2xl tracking-widest mb-3">* * * * *</div>
               <p className="text-xs font-bold tracking-widest text-gray-400 mb-3">SEU CAMPEÃO DO MUNDO</p>
               <div className="flex justify-center mb-3"><Flag code={champion.c} size="xl" /></div>
               <h2 className="font-black text-4xl tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{champion.n}</h2>
-              <p className="text-green-600 text-sm font-semibold tracking-wider mb-8">Copa do Mundo 2026 — USA · CAN · MEX</p>
+              <p className="text-green-600 text-sm font-semibold tracking-wider mb-8">Copa do Mundo 2026 - USA - CAN - MEX</p>
               {!confirmed && !locked && (
                 <button onClick={handleConfirm} disabled={saving}
                   className="bg-green-600 text-white font-bold px-10 py-3 rounded-xl text-sm tracking-widest hover:bg-green-700 transition disabled:opacity-50">
                   {saving ? 'SALVANDO...' : 'CONFIRMAR MEU BOLÃO'}
                 </button>
               )}
-              {confirmed && <p className="text-green-600 font-semibold text-sm">✓ Bolão confirmado!</p>}
+              {confirmed && <p className="text-green-600 font-semibold text-sm">Bolão confirmado!</p>}
             </div>
           ) : (
             <div>
@@ -482,7 +481,7 @@ export default function Bolao() {
                   <input type="number" min="0" max="20" value={finalS['0-a'] || ''}
                     onChange={e => setBScore('final', 0, 'a', e.target.value, ta, tb)}
                     className="w-12 h-10 text-center border-2 border-gray-200 rounded-lg text-lg font-black focus:outline-none focus:border-green-600" />
-                  <span className="text-gray-300">×</span>
+                  <span className="text-gray-300">x</span>
                   <input type="number" min="0" max="20" value={finalS['0-b'] || ''}
                     onChange={e => setBScore('final', 0, 'b', e.target.value, ta, tb)}
                     className="w-12 h-10 text-center border-2 border-gray-200 rounded-lg text-lg font-black focus:outline-none focus:border-green-600" />
@@ -498,15 +497,15 @@ export default function Bolao() {
       {penaltyModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-sm text-center">
-            <div className="text-3xl mb-2">🥅</div>
-            <h3 className="font-black text-lg tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>PÊNALTIS!</h3>
-            <p className="text-xs text-gray-400 mb-5">Empate no tempo normal — quem vence nos pênaltis?</p>
+            <div className="text-3xl mb-2">P</div>
+            <h3 className="font-black text-lg tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>PENALTIS!</h3>
+            <p className="text-xs text-gray-400 mb-5">Empate no tempo normal - quem vence nos penaltis?</p>
             <div className="flex flex-col gap-3">
               {[penaltyModal.ta, penaltyModal.tb].map(team => (
                 <button key={team.n} onClick={() => confirmPenalty(team)}
                   className="flex items-center gap-3 p-3 rounded-xl border-2 border-gray-200 hover:border-yellow-400 hover:bg-yellow-50 text-sm font-medium transition">
                   <Flag code={team.c} />{team.n}
-                  <span className="ml-auto text-xs text-gray-400">vence nos pênaltis →</span>
+                  <span className="ml-auto text-xs text-gray-400">vence nos penaltis</span>
                 </button>
               ))}
             </div>
@@ -516,4 +515,3 @@ export default function Bolao() {
     </div>
   )
 }
-ENDOFFILE
