@@ -17,6 +17,7 @@ const navItems = [
   { id: 'performance', label: 'PERFORMANCE', badge: false },
   { id: 'dashboard', label: 'DASHBOARD', badge: false },
   { id: 'pontuacao', label: 'PONTUAÇÃO', badge: false },
+  { id: 'chaveamento', label: 'CHAVEAMENTO', badge: false },
 ]
 
   return (

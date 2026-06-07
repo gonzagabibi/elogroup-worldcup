@@ -9,8 +9,10 @@ import MinhaPerformance from './pages/MinhaPerformance'
 import BolãoCraques from './pages/BolãoCraques'
 import PerfilUsuario from './pages/PerfilUsuario'
 import Layout from './components/Layout'
+import Chaveamento from './pages/Chaveamento'
 
-type Page = 'dashboard' | 'bolao' | 'ranking' | 'pontuacao' | 'performance' | 'craques' | 'perfil'
+
+type Page = 'dashboard' | 'bolao' | 'ranking' | 'pontuacao' | 'performance' | 'craques' | 'perfil' | 'chaveamento'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -36,6 +38,7 @@ function AppContent() {
   return (
     <Layout currentPage={currentPage} onNavigate={(page) => setCurrentPage(page as Page)}>
       {currentPage === 'dashboard' && <Dashboard />}
+      {currentPage === 'chaveamento' && <Chaveamento />}
       {currentPage === 'bolao' && <Bolao />}
       {currentPage === 'ranking' && <Ranking onViewPerfil={navigateToPerfil} />}
       {currentPage === 'pontuacao' && <Pontuacao />}
