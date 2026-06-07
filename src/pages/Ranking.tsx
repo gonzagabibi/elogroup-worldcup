@@ -19,38 +19,21 @@ function getCategory(percentile: number) {
 function getBadges(data: any): string[] {
   const badges: string[] = []
   if (!data) return badges
-
-  // 🔮 Vidente — 5 placares exatos nos grupos
-  let exactScores = 0
-  const scores = data.scores || {}
-  // Não temos os placares reais ainda, mas preparamos a estrutura
-  if (exactScores >= 5) badges.push('🔮 Vidente')
-
-  // 🇧🇷 Patriota — apostou Brasil campeão
   const bw = data.bracketWinners || {}
-  const finalWinners = bw['final'] || []
-  const champion = finalWinners.find(Boolean)
+  const champion = (bw['final'] || []).find(Boolean)
   if (champion?.c === 'br') badges.push('🇧🇷 Patriota')
-
-  // 🏆 Completo — preencheu o bolão inteiro
-  const allGroupsDone = Object.keys(scores).length === 12
-  if (allGroupsDone && champion) badges.push('🏆 Completo')
-
+  const allGroupsDone = Object.keys(data.scores || {}).length === 12
+  if (allGroupsDone && champion) badges.push('✅ Completo')
   return badges
 }
 
 function calcPoints(data: any): { total: number; byStage: Record<string, number> } {
-  // Por enquanto calcula pontos baseado na completude do bolão
-  // Quando tivermos resultados reais, calcularemos por acerto
   if (!data) return { total: 0, byStage: {} }
-  
   const scores = data.scores || {}
   const bw = data.bracketWinners || {}
-  
   let total = 0
   const byStage: Record<string, number> = {}
 
-  // Conta jogos preenchidos nos grupos
   let groupFilled = 0
   Object.values(scores).forEach((s: any) => {
     MATCHES.forEach(([a, b]) => {
@@ -58,23 +41,22 @@ function calcPoints(data: any): { total: number; byStage: Record<string, number>
     })
   })
   byStage['grupos'] = groupFilled
+  total += groupFilled * 2
 
-  // Conta avanços no mata-mata
   const stages = ['r32', 'oitavas', 'quartas', 'semi', 'final']
+  const stagePoints: Record<string, number> = { r32: 4, oitavas: 5, quartas: 7, semi: 10, final: 15 }
   stages.forEach(st => {
     const winners = (bw[st] || []).filter(Boolean).length
     byStage[st] = winners
-    total += winners * (st === 'final' ? 15 : st === 'semi' ? 10 : st === 'quartas' ? 7 : st === 'oitavas' ? 5 : st === 'r32' ? 4 : 0)
+    total += winners * (stagePoints[st] || 0)
   })
-  total += groupFilled * 2
 
   return { total, byStage }
 }
 
 type Player = {
   id: string
-  email: string
-  name: string
+  nome: string
   points: number
   confirmed: boolean
   badges: string[]
@@ -87,11 +69,9 @@ export default function Ranking() {
   const { user } = useAuth()
   const [players, setPlayers] = useState<Player[]>([])
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<'geral' | 'r32' | 'oitavas' | 'quartas' | 'semi'>('geral')
+  const [activeTab, setActiveTab] = useState<string>('geral')
 
-  useEffect(() => {
-    loadRanking()
-  }, [])
+  useEffect(() => { loadRanking() }, [])
 
   const loadRanking = async () => {
     const { data, error } = await supabase
@@ -100,14 +80,13 @@ export default function Ranking() {
 
     if (error || !data) { setLoading(false); return }
 
-    const ranked: Player[] = data.map((row, idx) => {
+    const ranked: Player[] = data.map(row => {
       const { total, byStage } = calcPoints(row.data)
       const bw = row.data?.bracketWinners || {}
       const champion = (bw['final'] || []).find(Boolean) || null
       return {
         id: row.user_id,
-        email: '',
-        name: `Participante ${idx + 1}`,
+        nome: row.data?.nome || 'Participante',
         points: total,
         confirmed: row.confirmed,
         badges: getBadges(row.data),
@@ -117,10 +96,8 @@ export default function Ranking() {
       }
     })
 
-    // Ordena por pontos
     ranked.sort((a, b) => b.points - a.points)
 
-    // Calcula percentil e categoria
     const total = ranked.length
     const withCategory = ranked.map((p, i) => ({
       ...p,
@@ -162,7 +139,6 @@ export default function Ranking() {
         <p className="text-gray-400 text-sm">Classificação dos participantes do EloGroup World Cup Challenge</p>
       </div>
 
-      {/* Card da minha posição */}
       {me && (
         <div className="bg-black text-white rounded-xl p-4 mb-6 flex items-center gap-4">
           <div className="w-12 h-12 rounded-full bg-yellow-400 flex items-center justify-center text-black font-black text-lg" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
@@ -183,10 +159,9 @@ export default function Ranking() {
         </div>
       )}
 
-      {/* Tabs por fase */}
       <div className="flex border-b border-gray-200 mb-4 overflow-x-auto">
         {stageTabs.map(tab => (
-          <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)}
             className={`px-4 py-2.5 text-xs font-semibold tracking-widest border-b-2 whitespace-nowrap transition ${
               activeTab === tab.id ? 'border-yellow-400 text-black' : 'border-transparent text-gray-400 hover:text-black'
             }`}>
@@ -195,9 +170,8 @@ export default function Ranking() {
         ))}
       </div>
 
-      {/* Tabela */}
       <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-        <div className="bg-black px-6 py-3 flex items-center gap-4">
+        <div className="bg-black px-6 py-3 flex items-center">
           <span className="text-yellow-400 font-black tracking-widest text-sm" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
             {activeTab === 'geral' ? 'CLASSIFICAÇÃO GERAL' : `MELHOR NA FASE: ${activeTab.toUpperCase()}`}
           </span>
@@ -208,7 +182,6 @@ export default function Ranking() {
           <div className="py-16 text-center">
             <p className="text-4xl mb-3">⚽</p>
             <p className="text-gray-400 text-sm">Nenhum bolão confirmado ainda.</p>
-            <p className="text-gray-300 text-xs mt-1">Seja o primeiro a confirmar!</p>
           </div>
         ) : (
           <div className="divide-y divide-gray-100">
@@ -217,20 +190,17 @@ export default function Ranking() {
               const pos = i + 1
               return (
                 <div key={player.id} className={`flex items-center gap-4 px-6 py-4 ${isMe ? 'bg-green-50' : ''}`}>
-                  {/* Posição */}
                   <span className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ${
                     pos === 1 ? 'bg-yellow-400 text-black' :
                     pos === 2 ? 'bg-gray-300 text-black' :
                     pos === 3 ? 'bg-orange-400 text-white' :
                     'bg-gray-100 text-gray-500'
                   }`} style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                    {pos === 1 ? '🥇' : pos === 2 ? '🥈' : pos === 3 ? '🥉' : pos}
+                    {pos <= 3 ? ['🥇','🥈','🥉'][pos-1] : pos}
                   </span>
-
-                  {/* Nome + categoria + badges */}
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium text-sm">{isMe ? 'Você' : player.name}</span>
+                      <span className="font-medium text-sm">{isMe ? `${player.nome} (você)` : player.nome}</span>
                       {!player.confirmed && <span className="text-xs text-gray-300">(em andamento)</span>}
                     </div>
                     <div className="flex gap-1.5 mt-1 flex-wrap">
@@ -238,15 +208,11 @@ export default function Ranking() {
                       {player.badges.map(b => <span key={b} className="text-xs bg-gray-100 px-1.5 py-0.5 rounded">{b}</span>)}
                     </div>
                   </div>
-
-                  {/* Campeão apostado */}
                   {player.champion && (
-                    <span className="text-xs text-gray-400 hidden md:block">
+                    <span className="text-xs text-gray-400 hidden md:flex items-center gap-1">
                       🏆 {player.champion.n}
                     </span>
                   )}
-
-                  {/* Pontos */}
                   <div className="text-right flex-shrink-0">
                     <p className="font-black text-lg text-green-600" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
                       {activeTab === 'geral' ? player.points : (player.byStage[activeTab] || 0)}
@@ -259,10 +225,7 @@ export default function Ranking() {
           </div>
         )}
       </div>
-
-      <p className="text-xs text-gray-400 text-center mt-4">
-        Ranking atualizado em tempo real conforme os bolões são confirmados
-      </p>
+      <p className="text-xs text-gray-400 text-center mt-4">Ranking atualizado em tempo real conforme os bolões são confirmados</p>
     </div>
   )
 }
