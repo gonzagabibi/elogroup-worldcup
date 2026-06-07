@@ -60,7 +60,6 @@ export default function PerfilUsuario({ userId, onBack }: { userId: string; onBa
   const bw = bolao.bracketWinners || {}
   const champion = (bw['final'] || []).find(Boolean)
   const nome = bolao.nome || 'Participante'
-  const groupScores = scores[GROUPS.findIndex(g => g.name === activeGroup)] || {}
 
   return (
     <div>
