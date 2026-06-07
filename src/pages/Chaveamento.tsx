@@ -73,17 +73,13 @@ export default function Chaveamento() {
                 </span>
               </div>
               {/* Times */}
-              <div className="px-3 pt-3 pb-2 border-b border-gray-100">
-                <div className="flex flex-col gap-1">
-                  {g.teams.map((t, i) => (
-                    <div key={t.n} className="flex items-center gap-2 text-xs py-0.5">
-                      <span className="text-gray-400 w-4 text-right">{i + 1}</span>
-                      <Flag code={t.c} />
-                      <span className="text-gray-700">{t.n}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <div className="px-3 py-2 border-b border-gray-100 flex flex-wrap gap-1.5">
+  {g.teams.map(t => (
+    <span key={t.n} className="flex items-center gap-1 text-xs bg-gray-50 border border-gray-200 px-2 py-1 rounded-full">
+      <Flag code={t.c} />{t.n}
+    </span>
+  ))}
+</div>
               {/* Jogos */}
               <div className="divide-y divide-gray-50">
                 {MATCHES.map(([ai, bi]) => (
