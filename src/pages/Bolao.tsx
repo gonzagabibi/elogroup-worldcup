@@ -72,7 +72,6 @@ export default function Bolao() {
   const [loading, setLoading] = useState(true)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Carrega bolão salvo ao entrar na página
   useEffect(() => {
     if (!user) return
     supabase
@@ -94,7 +93,6 @@ export default function Bolao() {
       })
   }, [user])
 
-  // Salva automaticamente com debounce de 1s
   const autoSave = (newState: object) => {
     if (locked) return
     if (saveTimer.current) clearTimeout(saveTimer.current)
@@ -114,18 +112,11 @@ export default function Bolao() {
   const setScore = (gi: number, key: string, val: string) => {
     const newScores = { ...scores, [gi]: { ...scores[gi], [key]: val } }
     setScores(newScores)
-    const newState = { scores: newScores, bracket, bracketScores, bracketWinners, penaltyWinners }
-    autoSave(newState)
-    if (allFilled(gi, newScores)) checkAndBuildR32(newScores, bracket, bracketScores, bracketWinners, penaltyWinners)
+    autoSave({ scores: newScores, bracket, bracketScores, bracketWinners, penaltyWinners })
+    if (allFilled(gi, newScores)) checkAndBuildR32(newScores)
   }
 
-  const checkAndBuildR32 = (
-    newScores: Record<number, Scores>,
-    br: Record<string, Team[][]>,
-    bs: Record<string, Scores>,
-    bw: Record<string, (Team | null)[]>,
-    pw: Record<string, (Team | null)[]>
-  ) => {
+  const checkAndBuildR32 = (newScores: Record<number, Scores>) => {
     const allClassified: Record<number, Team[]> = {}
     for (let gi = 0; gi < 12; gi++) {
       if (allFilled(gi, newScores)) allClassified[gi] = computeClassified(gi, newScores)
@@ -133,18 +124,28 @@ export default function Bolao() {
     if (Object.keys(allClassified).length === 12) {
       const c = allClassified
       const pairs: Team[][] = [
-        [c[0]?.[0], c[1]?.[1]], [c[2]?.[0], c[3]?.[1]],
-        [c[4]?.[0], c[5]?.[1]], [c[6]?.[0], c[7]?.[1]],
-        [c[8]?.[0], c[9]?.[1]], [c[10]?.[0], c[11]?.[1]],
-        [c[1]?.[0], c[0]?.[1]], [c[3]?.[0], c[2]?.[1]],
-        [c[5]?.[0], c[4]?.[1]], [c[7]?.[0], c[6]?.[1]],
-        [c[9]?.[0], c[8]?.[1]], [c[11]?.[0], c[10]?.[1]],
-        [c[0]?.[1], c[3]?.[0]], [c[1]?.[1], c[2]?.[0]],
-        [c[4]?.[1], c[7]?.[0]], [c[5]?.[1], c[6]?.[0]],
+        [c[0]?.[0], c[1]?.[1]],   // 1A vs 2B
+        [c[1]?.[0], c[0]?.[1]],   // 1B vs 2A
+        [c[2]?.[0], c[3]?.[1]],   // 1C vs 2D
+        [c[3]?.[0], c[2]?.[1]],   // 1D vs 2C
+        [c[4]?.[0], c[5]?.[1]],   // 1E vs 2F
+        [c[5]?.[0], c[4]?.[1]],   // 1F vs 2E
+        [c[6]?.[0], c[7]?.[1]],   // 1G vs 2H
+        [c[7]?.[0], c[6]?.[1]],   // 1H vs 2G
+        [c[8]?.[0], c[9]?.[1]],   // 1I vs 2J
+        [c[9]?.[0], c[8]?.[1]],   // 1J vs 2I
+        [c[10]?.[0], c[11]?.[1]], // 1K vs 2L
+        [c[11]?.[0], c[10]?.[1]], // 1L vs 2K
+        [c[0]?.[1], c[2]?.[0]],   // 2A vs 1C
+        [c[1]?.[1], c[3]?.[0]],   // 2B vs 1D
+        [c[4]?.[1], c[6]?.[0]],   // 2E vs 1G
+        [c[5]?.[1], c[7]?.[0]],   // 2F vs 1H
       ]
-      const newBracket = { ...br, r32: pairs }
-      setBracket(newBracket)
-      autoSave({ scores: newScores, bracket: newBracket, bracketScores: bs, bracketWinners: bw, penaltyWinners: pw })
+      setBracket(prev => {
+        const newBracket = { ...prev, r32: pairs }
+        autoSave({ scores: newScores, bracket: newBracket, bracketScores, bracketWinners, penaltyWinners })
+        return newBracket
+      })
     }
   }
 
@@ -295,7 +296,6 @@ export default function Bolao() {
           🎉 Bolão confirmado! Boa sorte na Copa! 🌍
         </div>
       )}
-
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="font-black text-3xl tracking-widest" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>MEU BOLÃO</h1>
