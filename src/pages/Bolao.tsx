@@ -616,7 +616,7 @@ export default function Bolao() {
                 >
                   <div className="text-sm font-bold mb-1">{profile.label}</div>
                   <div className="text-xs text-gray-500">{profile.desc}</div>
-                  <div className="text-xs text-green-600 font-bold mt-1">🏆 {profile.champion}</div>
+
                 </button>
               ))}
             </div>
