@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../context/AuthContext'
+import { AI_PROFILES, AI_DATA, type ProfileKey } from '../data/aiProfiles'
 
 const GROUPS = [
   { name: 'A', teams: [{n:'México',c:'mx'},{n:'África do Sul',c:'za'},{n:'Coreia do Sul',c:'kr'},{n:'Rep. Tcheca',c:'cz'}] },
@@ -8,7 +9,7 @@ const GROUPS = [
   { name: 'C', teams: [{n:'Brasil',c:'br'},{n:'Marrocos',c:'ma'},{n:'Haiti',c:'ht'},{n:'Escócia',c:'gb-sct'}] },
   { name: 'D', teams: [{n:'EUA',c:'us'},{n:'Paraguai',c:'py'},{n:'Austrália',c:'au'},{n:'Turquia',c:'tr'}] },
   { name: 'E', teams: [{n:'Alemanha',c:'de'},{n:'Curaçao',c:'cw'},{n:'Costa do Marfim',c:'ci'},{n:'Equador',c:'ec'}] },
-  { name: 'F', teams: [{n:'Países Baixos',c:'nl'},{n:'Japão',c:'jp'},{n:'Suédia',c:'se'},{n:'Tunísia',c:'tn'}] },
+  { name: 'F', teams: [{n:'Países Baixos',c:'nl'},{n:'Japão',c:'jp'},{n:'Suécia',c:'se'},{n:'Tunísia',c:'tn'}] },
   { name: 'G', teams: [{n:'Bélgica',c:'be'},{n:'Egito',c:'eg'},{n:'Irã',c:'ir'},{n:'Nova Zelândia',c:'nz'}] },
   { name: 'H', teams: [{n:'Espanha',c:'es'},{n:'Cabo Verde',c:'cv'},{n:'Arábia Saudita',c:'sa'},{n:'Uruguai',c:'uy'}] },
   { name: 'I', teams: [{n:'França',c:'fr'},{n:'Senegal',c:'sn'},{n:'Iraque',c:'iq'},{n:'Noruega',c:'no'}] },
@@ -135,8 +136,8 @@ export default function Bolao() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [openGroup, setOpenGroup] = useState<number | null>(0)
-  const [aiSuggesting, setAiSuggesting] = useState(false)
-  const [aiError, setAiError] = useState<string | null>(null)
+  const [aiModal, setAiModal] = useState(false)
+  const [selectedProfile, setSelectedProfile] = useState<ProfileKey | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -184,31 +185,25 @@ export default function Bolao() {
     }, 1000)
   }
 
-  const handleAISuggest = async () => {
-    if (locked || aiSuggesting) return
-    setAiSuggesting(true)
-    setAiError(null)
-    try {
-      const res = await fetch('/api/suggest-scores', { method: 'POST' })
-      if (!res.ok) throw new Error('Erro na resposta da API')
-      const data = await res.json()
-      if (!data.groups) throw new Error('Formato inválido')
-      const newScores: Record<number, Scores> = {}
-      for (const [gi, groupScores] of Object.entries(data.groups)) {
-        const idx = parseInt(gi)
-        newScores[idx] = {}
-        for (const [key, val] of Object.entries(groupScores as Record<string, number>)) {
-          newScores[idx][key] = String(val)
-        }
+  const handleAISuggest = (profileKey: ProfileKey) => {
+    if (locked) return
+    const d = AI_DATA[profileKey]
+    if (!d) return
+    const newScores: Record<number, Record<string, string>> = {}
+    for (const [gi, gs] of Object.entries(d.scores)) {
+      newScores[parseInt(gi)] = {}
+      for (const [key, val] of Object.entries(gs as Record<string, number>)) {
+        newScores[parseInt(gi)][key] = String(val)
       }
-      setScores(newScores)
-      autoSave({ scores: newScores, bracket, bracketScores, bracketWinners, penaltyWinners })
-      checkAndBuildR32(newScores)
-    } catch {
-      setAiError('Não foi possível gerar sugestão. Tente novamente.')
-    } finally {
-      setAiSuggesting(false)
     }
+    setScores(newScores)
+    setBracket(d.bracket)
+    setBracketScores(d.bracketScores)
+    setBracketWinners(d.bracketWinners)
+    setPenaltyWinners({})
+    setSelectedProfile(profileKey)
+    setAiModal(false)
+    autoSave({ scores: newScores, bracket: d.bracket, bracketScores: d.bracketScores, bracketWinners: d.bracketWinners, penaltyWinners: {} })
   }
 
   const setScore = (gi: number, key: string, val: string) => {
@@ -389,16 +384,12 @@ export default function Bolao() {
         </div>
         <div className="flex items-center gap-3">
           {saving && <span className="text-xs text-gray-400 animate-pulse">Salvando...</span>}
-          {!confirmed && !locked && stage === 'grupos' && (
+          {!confirmed && !locked && (
             <button
-              onClick={handleAISuggest}
-              disabled={aiSuggesting}
-              className="flex items-center gap-2 bg-black text-yellow-400 text-xs font-bold px-3 py-2 rounded-lg hover:bg-gray-800 transition disabled:opacity-50 tracking-wider"
+              onClick={() => setAiModal(true)}
+              className="flex items-center gap-2 bg-black text-yellow-400 text-xs font-bold px-3 py-2 rounded-lg hover:bg-gray-800 transition tracking-wider"
             >
-              {aiSuggesting
-                ? <><span className="w-3 h-3 border border-yellow-400 border-t-transparent rounded-full animate-spin"></span> GERANDO...</>
-                : <>🤖 SUGERIR COM IA</>
-              }
+              🤖 SUGERIR COM IA
             </button>
           )}
           <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -406,18 +397,10 @@ export default function Bolao() {
           </div>
           <div className="flex flex-col items-end gap-1">
             <span className="text-xs font-bold text-green-600">{progress}% grupos</span>
-            {confirmed && (
-              <span className="text-xs text-green-600 font-bold">✓ Bolão confirmado</span>
-            )}
+            {confirmed && <span className="text-xs text-green-600 font-bold">✓ Bolão confirmado</span>}
           </div>
         </div>
       </div>
-
-      {aiError && (
-        <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-4 py-2 rounded-lg mb-4">
-          {aiError}
-        </div>
-      )}
 
       <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
         {tabs.map(tab => (
@@ -455,9 +438,7 @@ export default function Bolao() {
                       GRUPO {g.name}
                     </span>
                     <div className="flex items-center gap-1">
-                      {g.teams.slice(0, 4).map(t => (
-                        <Flag key={t.n} code={t.c} size="sm" />
-                      ))}
+                      {g.teams.slice(0, 4).map(t => <Flag key={t.n} code={t.c} size="sm" />)}
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -468,7 +449,6 @@ export default function Bolao() {
                     <span className="text-gray-400 text-xs ml-1">{isOpen ? '▲' : '▼'}</span>
                   </div>
                 </button>
-
                 {isOpen && (
                   <>
                     {MATCHES.map(([ai, bi]) => {
@@ -580,6 +560,33 @@ export default function Bolao() {
               <p className="text-center text-xs text-gray-400 mt-3">Preencha o placar para revelar seu campeão</p>
             </div>
           )}
+        </div>
+      )}
+
+      {aiModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl p-6 w-full max-w-lg">
+            <h3 className="font-black text-xl tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+              🤖 ESCOLHA SEU ESTILO
+            </h3>
+            <p className="text-xs text-gray-400 mb-5">A IA vai preencher todo o seu bolão baseado no perfil escolhido. Você pode editar depois!</p>
+            <div className="grid grid-cols-2 gap-2">
+              {(Object.entries(AI_PROFILES) as [ProfileKey, typeof AI_PROFILES[ProfileKey]][]).map(([key, profile]) => (
+                <button
+                  key={key}
+                  onClick={() => handleAISuggest(key)}
+                  className={`text-left p-3 rounded-xl border-2 transition hover:border-yellow-400 hover:bg-yellow-50 ${selectedProfile === key ? 'border-yellow-400 bg-yellow-50' : 'border-gray-200'}`}
+                >
+                  <div className="text-sm font-bold mb-1">{profile.label}</div>
+                  <div className="text-xs text-gray-500">{profile.desc}</div>
+                  <div className="text-xs text-green-600 font-bold mt-1">🏆 {profile.champion}</div>
+                </button>
+              ))}
+            </div>
+            <button onClick={() => setAiModal(false)} className="mt-4 w-full py-2 text-xs text-gray-400 hover:text-black">
+              Cancelar
+            </button>
+          </div>
         </div>
       )}
 
