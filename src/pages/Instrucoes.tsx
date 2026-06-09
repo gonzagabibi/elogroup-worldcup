@@ -1,9 +1,9 @@
 
-export default function Dashboard() {
+export default function Instrucoes() {
   return (
     <div>
-      <h1 className="font-black text-3xl tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>DASHBOARD</h1>
-      <p className="text-gray-400 text-sm mb-8">Bem-vindo ao EloGroup World Cup Challenge 2026 🏆</p>
+      <h1 className="font-black text-3xl tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>INSTRUÇÕES</h1>
+      <p className="text-gray-400 text-sm mb-8">Como funciona o EloGroup World Cup Challenge 2026 🏆</p>
 
       {/* Cards informativos */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
