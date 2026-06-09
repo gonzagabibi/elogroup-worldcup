@@ -8,7 +8,7 @@ const GROUPS = [
   { name: 'C', teams: [{n:'Brasil',c:'br'},{n:'Marrocos',c:'ma'},{n:'Haiti',c:'ht'},{n:'Escócia',c:'gb-sct'}] },
   { name: 'D', teams: [{n:'EUA',c:'us'},{n:'Paraguai',c:'py'},{n:'Austrália',c:'au'},{n:'Turquia',c:'tr'}] },
   { name: 'E', teams: [{n:'Alemanha',c:'de'},{n:'Curaçao',c:'cw'},{n:'Costa do Marfim',c:'ci'},{n:'Equador',c:'ec'}] },
-  { name: 'F', teams: [{n:'Países Baixos',c:'nl'},{n:'Japão',c:'jp'},{n:'Suécia',c:'se'},{n:'Tunísia',c:'tn'}] },
+  { name: 'F', teams: [{n:'Países Baixos',c:'nl'},{n:'Japão',c:'jp'},{n:'Suédia',c:'se'},{n:'Tunísia',c:'tn'}] },
   { name: 'G', teams: [{n:'Bélgica',c:'be'},{n:'Egito',c:'eg'},{n:'Irã',c:'ir'},{n:'Nova Zelândia',c:'nz'}] },
   { name: 'H', teams: [{n:'Espanha',c:'es'},{n:'Cabo Verde',c:'cv'},{n:'Arábia Saudita',c:'sa'},{n:'Uruguai',c:'uy'}] },
   { name: 'I', teams: [{n:'França',c:'fr'},{n:'Senegal',c:'sn'},{n:'Iraque',c:'iq'},{n:'Noruega',c:'no'}] },
@@ -135,6 +135,8 @@ export default function Bolao() {
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
   const [openGroup, setOpenGroup] = useState<number | null>(0)
+  const [aiSuggesting, setAiSuggesting] = useState(false)
+  const [aiError, setAiError] = useState<string | null>(null)
   const saveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   useEffect(() => {
@@ -180,6 +182,33 @@ export default function Bolao() {
       }, { onConflict: 'user_id' })
       setSaving(false)
     }, 1000)
+  }
+
+  const handleAISuggest = async () => {
+    if (locked || aiSuggesting) return
+    setAiSuggesting(true)
+    setAiError(null)
+    try {
+      const res = await fetch('/api/suggest-scores', { method: 'POST' })
+      if (!res.ok) throw new Error('Erro na resposta da API')
+      const data = await res.json()
+      if (!data.groups) throw new Error('Formato inválido')
+      const newScores: Record<number, Scores> = {}
+      for (const [gi, groupScores] of Object.entries(data.groups)) {
+        const idx = parseInt(gi)
+        newScores[idx] = {}
+        for (const [key, val] of Object.entries(groupScores as Record<string, number>)) {
+          newScores[idx][key] = String(val)
+        }
+      }
+      setScores(newScores)
+      autoSave({ scores: newScores, bracket, bracketScores, bracketWinners, penaltyWinners })
+      checkAndBuildR32(newScores)
+    } catch {
+      setAiError('Não foi possível gerar sugestão. Tente novamente.')
+    } finally {
+      setAiSuggesting(false)
+    }
   }
 
   const setScore = (gi: number, key: string, val: string) => {
@@ -287,13 +316,14 @@ export default function Bolao() {
     (!isNaN(finalSa) && !isNaN(finalSb) && finalSa !== finalSb) ? (finalSa > finalSb ? ta : tb) : null
 
   const tabs = [
-  { id: 'grupos', label: 'GRUPOS', locked: false },
-  { id: 'r32', label: 'RODADA DE 32', locked: !allGroupsDone && !bracket.r32 },
-  { id: 'oitavas', label: 'OITAVAS', locked: !bracket.oitavas },
-  { id: 'quartas', label: 'QUARTAS', locked: !bracket.quartas },
-  { id: 'semi', label: 'SEMIFINAL', locked: !bracket.semi },
-  { id: 'final', label: 'FINAL', locked: !bracket.final && (bracketWinners.semi || []).filter(Boolean).length < 2 },
-]
+    { id: 'grupos', label: 'GRUPOS', locked: false },
+    { id: 'r32', label: 'RODADA DE 32', locked: !allGroupsDone && !bracket.r32 },
+    { id: 'oitavas', label: 'OITAVAS', locked: !bracket.oitavas },
+    { id: 'quartas', label: 'QUARTAS', locked: !bracket.quartas },
+    { id: 'semi', label: 'SEMIFINAL', locked: !bracket.semi },
+    { id: 'final', label: 'FINAL', locked: !bracket.final && (bracketWinners.semi || []).filter(Boolean).length < 2 },
+  ]
+
   const renderBracketStage = (st: string) => (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
       {(bracket[st] || []).map((pair, i) => {
@@ -359,17 +389,35 @@ export default function Bolao() {
         </div>
         <div className="flex items-center gap-3">
           {saving && <span className="text-xs text-gray-400 animate-pulse">Salvando...</span>}
+          {!confirmed && !locked && stage === 'grupos' && (
+            <button
+              onClick={handleAISuggest}
+              disabled={aiSuggesting}
+              className="flex items-center gap-2 bg-black text-yellow-400 text-xs font-bold px-3 py-2 rounded-lg hover:bg-gray-800 transition disabled:opacity-50 tracking-wider"
+            >
+              {aiSuggesting
+                ? <><span className="w-3 h-3 border border-yellow-400 border-t-transparent rounded-full animate-spin"></span> GERANDO...</>
+                : <>🤖 SUGERIR COM IA</>
+              }
+            </button>
+          )}
           <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
             <div className="h-full bg-green-600 rounded-full transition-all" style={{ width: `${progress}%` }}></div>
           </div>
           <div className="flex flex-col items-end gap-1">
-  <span className="text-xs font-bold text-green-600">{progress}% grupos</span>
-  {confirmed && (
-    <span className="text-xs text-green-600 font-bold">✓ Bolão confirmado</span>
-  )}
-</div>
+            <span className="text-xs font-bold text-green-600">{progress}% grupos</span>
+            {confirmed && (
+              <span className="text-xs text-green-600 font-bold">✓ Bolão confirmado</span>
+            )}
+          </div>
         </div>
       </div>
+
+      {aiError && (
+        <div className="bg-red-50 border border-red-200 text-red-700 text-xs px-4 py-2 rounded-lg mb-4">
+          {aiError}
+        </div>
+      )}
 
       <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
         {tabs.map(tab => (
@@ -384,104 +432,102 @@ export default function Bolao() {
         ))}
       </div>
 
-{stage === 'grupos' && (
-  <div className="flex flex-col gap-3">
-    {GROUPS.map((g, gi) => {
-      const cl = getClassified(gi)
-      const filled = allFilled(gi, scores)
-      const filledCount = MATCHES.filter(([a, b]) => {
-        const s = scores[gi] || {}
-        return s[`${a}-${b}-a`] !== '' && s[`${a}-${b}-a`] !== undefined &&
-               s[`${a}-${b}-b`] !== '' && s[`${a}-${b}-b`] !== undefined
-      }).length
-      const standings = filled ? computeStandings(gi, scores) : []
-      const third = standings[2]
-      const isOpen = openGroup === gi
-      return (
-        <div key={gi} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          {/* Header clicável */}
-          <button
-            onClick={() => setOpenGroup(isOpen ? null : gi)}
-            className="w-full bg-black px-4 py-3 flex items-center justify-between hover:bg-gray-900 transition">
-            <div className="flex items-center gap-3">
-              <span className="font-black text-yellow-400 tracking-widest text-sm" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                GRUPO {g.name}
-              </span>
-              <div className="flex items-center gap-1">
-                {g.teams.slice(0, 4).map(t => (
-                  <Flag key={t.n} code={t.c} size="sm" />
-                ))}
-              </div>
-            </div>
-            <div className="flex items-center gap-2">
-              {filled
-                ? <span className="text-green-400 text-xs font-bold">✓ COMPLETO</span>
-                : <span className="text-gray-400 text-xs">{filledCount}/6 jogos</span>
-              }
-              <span className="text-gray-400 text-xs ml-1">{isOpen ? '▲' : '▼'}</span>
-            </div>
-          </button>
+      {stage === 'grupos' && (
+        <div className="flex flex-col gap-3">
+          {GROUPS.map((g, gi) => {
+            const cl = getClassified(gi)
+            const filled = allFilled(gi, scores)
+            const filledCount = MATCHES.filter(([a, b]) => {
+              const s = scores[gi] || {}
+              return s[`${a}-${b}-a`] !== '' && s[`${a}-${b}-a`] !== undefined &&
+                     s[`${a}-${b}-b`] !== '' && s[`${a}-${b}-b`] !== undefined
+            }).length
+            const standings = filled ? computeStandings(gi, scores) : []
+            const third = standings[2]
+            const isOpen = openGroup === gi
+            return (
+              <div key={gi} className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <button
+                  onClick={() => setOpenGroup(isOpen ? null : gi)}
+                  className="w-full bg-black px-4 py-3 flex items-center justify-between hover:bg-gray-900 transition">
+                  <div className="flex items-center gap-3">
+                    <span className="font-black text-yellow-400 tracking-widest text-sm" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
+                      GRUPO {g.name}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      {g.teams.slice(0, 4).map(t => (
+                        <Flag key={t.n} code={t.c} size="sm" />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {filled
+                      ? <span className="text-green-400 text-xs font-bold">✓ COMPLETO</span>
+                      : <span className="text-gray-400 text-xs">{filledCount}/6 jogos</span>
+                    }
+                    <span className="text-gray-400 text-xs ml-1">{isOpen ? '▲' : '▼'}</span>
+                  </div>
+                </button>
 
-          {/* Conteúdo colapsável */}
-          {isOpen && (
-            <>
-              {MATCHES.map(([ai, bi]) => {
-                const ta = g.teams[ai], tb = g.teams[bi]
-                const key = `${ai}-${bi}`
-                const s = scores[gi] || {}
-                return (
-                  <div key={key} className="px-4 py-3 border-b border-gray-100 last:border-0">
-                    <div className="flex items-center gap-2">
-                      <span className="flex items-center gap-2 flex-1 text-xs font-medium"><Flag code={ta.c} />{ta.n}</span>
-                      <div className="flex items-center gap-1">
-                        <input type="number" min="0" max="20" disabled={locked}
-                          value={s[`${key}-a`] || ''} onChange={e => setScore(gi, `${key}-a`, e.target.value)}
-                          className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40 disabled:cursor-not-allowed" />
-                        <span className="text-gray-300 text-xs">x</span>
-                        <input type="number" min="0" max="20" disabled={locked}
-                          value={s[`${key}-b`] || ''} onChange={e => setScore(gi, `${key}-b`, e.target.value)}
-                          className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40 disabled:cursor-not-allowed" />
+                {isOpen && (
+                  <>
+                    {MATCHES.map(([ai, bi]) => {
+                      const ta = g.teams[ai], tb = g.teams[bi]
+                      const key = `${ai}-${bi}`
+                      const s = scores[gi] || {}
+                      return (
+                        <div key={key} className="px-4 py-3 border-b border-gray-100 last:border-0">
+                          <div className="flex items-center gap-2">
+                            <span className="flex items-center gap-2 flex-1 text-xs font-medium"><Flag code={ta.c} />{ta.n}</span>
+                            <div className="flex items-center gap-1">
+                              <input type="number" min="0" max="20" disabled={locked}
+                                value={s[`${key}-a`] || ''} onChange={e => setScore(gi, `${key}-a`, e.target.value)}
+                                className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40 disabled:cursor-not-allowed" />
+                              <span className="text-gray-300 text-xs">x</span>
+                              <input type="number" min="0" max="20" disabled={locked}
+                                value={s[`${key}-b`] || ''} onChange={e => setScore(gi, `${key}-b`, e.target.value)}
+                                className="w-10 h-8 text-center border border-gray-200 rounded text-sm font-bold focus:outline-none focus:border-green-600 disabled:opacity-40 disabled:cursor-not-allowed" />
+                            </div>
+                            <span className="flex items-center gap-2 flex-1 justify-end text-xs font-medium">{tb.n}<Flag code={tb.c} /></span>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    {cl.length > 0 && (
+                      <div className="px-4 py-3 bg-green-50 border-t border-green-100">
+                        <p className="text-xs text-green-700 font-bold mb-2">🏆 CLASSIFICADOS</p>
+                        <div className="flex gap-2 flex-wrap">
+                          {cl.map(t => (
+                            <span key={t.n} className="flex items-center gap-1.5 border border-green-600 text-green-600 text-xs font-semibold px-2 py-1 rounded bg-green-50">
+                              <Flag code={t.c} size="sm" />{t.n} ✓
+                            </span>
+                          ))}
+                        </div>
+                        {third && (
+                          <div className="mt-2">
+                            <p className="text-xs text-gray-400 font-bold mb-1">3º COLOCADO</p>
+                            <span className="flex items-center gap-1.5 border border-gray-300 text-gray-500 text-xs font-semibold px-2 py-1 rounded w-fit">
+                              <Flag code={third.team.c} size="sm" />{third.team.n}
+                              <span className="text-gray-400 font-normal">({third.pts}pts, saldo {third.saldo > 0 ? '+' : ''}{third.saldo})</span>
+                            </span>
+                          </div>
+                        )}
                       </div>
-                      <span className="flex items-center gap-2 flex-1 justify-end text-xs font-medium">{tb.n}<Flag code={tb.c} /></span>
-                    </div>
-                  </div>
-                )
-              })}
-              {cl.length > 0 && (
-                <div className="px-4 py-3 bg-green-50 border-t border-green-100">
-                  <p className="text-xs text-green-700 font-bold mb-2">🏆 CLASSIFICADOS</p>
-                  <div className="flex gap-2 flex-wrap">
-                    {cl.map(t => (
-                      <span key={t.n} className="flex items-center gap-1.5 border border-green-600 text-green-600 text-xs font-semibold px-2 py-1 rounded bg-green-50">
-                        <Flag code={t.c} size="sm" />{t.n} ✓
-                      </span>
-                    ))}
-                  </div>
-                  {third && (
-                    <div className="mt-2">
-                      <p className="text-xs text-gray-400 font-bold mb-1">3º COLOCADO</p>
-                      <span className="flex items-center gap-1.5 border border-gray-300 text-gray-500 text-xs font-semibold px-2 py-1 rounded w-fit">
-                        <Flag code={third.team.c} size="sm" />{third.team.n}
-                        <span className="text-gray-400 font-normal">({third.pts}pts, saldo {third.saldo > 0 ? '+' : ''}{third.saldo})</span>
-                      </span>
-                    </div>
-                  )}
-                </div>
-              )}
-              {!filled && (
-                <div className="px-4 py-2 pb-3">
-                  <div className="w-full py-2 bg-gray-100 text-gray-400 text-xs font-bold tracking-widest text-center rounded">
-                    PREENCHA OS JOGOS PRIMEIRO
-                  </div>
-                </div>
-              )}
-            </>
-          )}
+                    )}
+                    {!filled && (
+                      <div className="px-4 py-2 pb-3">
+                        <div className="w-full py-2 bg-gray-100 text-gray-400 text-xs font-bold tracking-widest text-center rounded">
+                          PREENCHA OS JOGOS PRIMEIRO
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            )
+          })}
         </div>
-      )
-    })}
-  </div>
-)}
+      )}
 
       {['r32', 'oitavas', 'quartas', 'semi'].map(st => stage === st && (
         <div key={st}>{renderBracketStage(st)}</div>
@@ -505,15 +551,15 @@ export default function Bolao() {
                   {saving ? 'SALVANDO...' : 'CONFIRMAR MEU BOLÃO'}
                 </button>
               )}
-             {confirmed && (
-  <div className="mt-4 text-center">
-    <p className="text-green-600 font-semibold text-sm mb-3">✓ Bolão confirmado!</p>
-    <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-      <p className="text-yellow-800 font-bold text-sm mb-1">⚽ Não esqueça dos Craques!</p>
-      <p className="text-yellow-700 text-xs">Preencha o Bolão dos Craques para garantir até +55pts de bônus!</p>
-    </div>
-  </div>
-)}
+              {confirmed && (
+                <div className="mt-4 text-center">
+                  <p className="text-green-600 font-semibold text-sm mb-3">✓ Bolão confirmado!</p>
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                    <p className="text-yellow-800 font-bold text-sm mb-1">⚽ Não esqueça dos Craques!</p>
+                    <p className="text-yellow-700 text-xs">Preencha o Bolão dos Craques para garantir até +55pts de bônus!</p>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <div>
