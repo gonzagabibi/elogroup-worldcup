@@ -318,6 +318,7 @@ export default function Bolao() {
 
   const handleConfirm = async () => {
     if (!user) return
+    if (saveTimer.current) clearTimeout(saveTimer.current)
     setSaving(true)
     await supabase.from('predictions').upsert({
       user_id: user.id,
@@ -554,47 +555,50 @@ export default function Bolao() {
         <div className="max-w-lg mx-auto">
           {!ta || !tb ? (
             <p className="text-gray-400 text-sm text-center">Complete a semifinal primeiro.</p>
-          ) : champion ? (
-            <div className="text-center py-10">
-              <div className="w-24 h-24 rounded-full border-4 border-yellow-400 flex items-center justify-center text-5xl mx-auto mb-4 bg-yellow-50">🏆</div>
-              <div className="text-yellow-400 text-2xl tracking-widest mb-3">★★★★★</div>
-              <p className="text-xs font-bold tracking-widest text-gray-400 mb-3">SEU CAMPEÃO DO MUNDO</p>
-              <div className="flex justify-center mb-3"><Flag code={champion.c} size="xl" /></div>
-              <h2 className="font-black text-4xl tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{champion.n}</h2>
-              <p className="text-green-600 text-sm font-semibold tracking-wider mb-8">Copa do Mundo 2026 - USA - CAN - MEX</p>
-              {!confirmed && !locked && (
-                <button onClick={handleConfirm} disabled={saving}
-                  className="bg-green-600 text-white font-bold px-10 py-3 rounded-xl text-sm tracking-widest hover:bg-green-700 transition disabled:opacity-50">
-                  {saving ? 'SALVANDO...' : 'CONFIRMAR MEU BOLÃO'}
-                </button>
-              )}
-              {confirmed && (
-                <div className="mt-4 text-center">
-                  <p className="text-green-600 font-semibold text-sm mb-3">✓ Bolão confirmado!</p>
-                  <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-                    <p className="text-yellow-800 font-bold text-sm mb-1">⚽ Não esqueça dos Craques!</p>
-                    <p className="text-yellow-700 text-xs">Preencha o Bolão dos Craques para garantir até +55pts de bônus!</p>
-                  </div>
-                </div>
-              )}
-            </div>
           ) : (
             <div>
               <h2 className="font-black text-2xl tracking-widest mb-6 text-center" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>GRANDE FINAL</h2>
-              <div className="bg-white border-2 border-yellow-400 rounded-xl p-6 flex items-center gap-4">
+              <div className={`bg-white rounded-xl p-6 flex items-center gap-4 ${champion ? 'border-2 border-yellow-400' : 'border-2 border-gray-200'}`}>
                 <span className="flex items-center gap-2 flex-1 text-base font-bold"><Flag code={ta.c} />{ta.n}</span>
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <input type="number" min="0" max="20" value={finalS['0-a'] || ''}
+                  <input type="number" min="0" max="20" disabled={locked}
+                    value={finalS['0-a'] || ''}
                     onChange={e => setBScore('final', 0, 'a', e.target.value, ta, tb)}
-                    className="w-12 h-10 text-center border-2 border-gray-200 rounded-lg text-lg font-black focus:outline-none focus:border-green-600" />
+                    className="w-12 h-10 text-center border-2 border-gray-200 rounded-lg text-lg font-black focus:outline-none focus:border-green-600 disabled:opacity-40" />
                   <span className="text-gray-300">x</span>
-                  <input type="number" min="0" max="20" value={finalS['0-b'] || ''}
+                  <input type="number" min="0" max="20" disabled={locked}
+                    value={finalS['0-b'] || ''}
                     onChange={e => setBScore('final', 0, 'b', e.target.value, ta, tb)}
-                    className="w-12 h-10 text-center border-2 border-gray-200 rounded-lg text-lg font-black focus:outline-none focus:border-green-600" />
+                    className="w-12 h-10 text-center border-2 border-gray-200 rounded-lg text-lg font-black focus:outline-none focus:border-green-600 disabled:opacity-40" />
                 </div>
                 <span className="flex items-center gap-2 flex-1 justify-end text-base font-bold">{tb.n}<Flag code={tb.c} /></span>
               </div>
-              <p className="text-center text-xs text-gray-400 mt-3">Preencha o placar para revelar seu campeão</p>
+              {!champion && <p className="text-center text-xs text-gray-400 mt-3">Preencha o placar para revelar seu campeão</p>}
+              {champion && (
+                <div className="text-center py-8">
+                  <div className="w-20 h-20 rounded-full border-4 border-yellow-400 flex items-center justify-center text-4xl mx-auto mb-3 bg-yellow-50">🏆</div>
+                  <div className="text-yellow-400 text-xl tracking-widest mb-2">★★★★★</div>
+                  <p className="text-xs font-bold tracking-widest text-gray-400 mb-2">SEU CAMPEÃO DO MUNDO</p>
+                  <div className="flex justify-center mb-2"><Flag code={champion.c} size="xl" /></div>
+                  <h2 className="font-black text-4xl tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{champion.n}</h2>
+                  <p className="text-green-600 text-sm font-semibold tracking-wider mb-6">Copa do Mundo 2026 - USA - CAN - MEX</p>
+                  {!confirmed && !locked && (
+                    <button onClick={handleConfirm} disabled={saving}
+                      className="bg-green-600 text-white font-bold px-10 py-3 rounded-xl text-sm tracking-widest hover:bg-green-700 transition disabled:opacity-50">
+                      {saving ? 'SALVANDO...' : 'CONFIRMAR MEU BOLÃO'}
+                    </button>
+                  )}
+                  {confirmed && (
+                    <div className="mt-4 text-center">
+                      <p className="text-green-600 font-semibold text-sm mb-3">✓ Bolão confirmado!</p>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                        <p className="text-yellow-800 font-bold text-sm mb-1">⚽ Não esqueça dos Craques!</p>
+                        <p className="text-yellow-700 text-xs">Preencha o Bolão dos Craques para garantir até +55pts de bônus!</p>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           )}
         </div>
