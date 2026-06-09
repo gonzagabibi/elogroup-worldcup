@@ -93,11 +93,56 @@ export default function Ranking({ onViewPerfil }: { onViewPerfil: (userId: strin
   useEffect(() => { loadRanking() }, [])
 
   const loadRanking = async () => {
-    const [{ data: predictions }, { data: results }] = await Promise.all([
+    const [{ data: predictions }, gamesRes] = await Promise.all([
       supabase.from('predictions').select('user_id, data, confirmed'),
-      supabase.from('match_results').select('*').eq('played', true),
+      fetch('/api/games').then(r => r.json()).catch(() => ({ games: [] })),
     ])
     if (!predictions) { setLoading(false); return }
+
+    // Converter jogos da API para formato de resultados
+    const NAME_MAP: Record<string, string> = {
+      'Mexico': 'México', 'South Africa': 'África do Sul', 'South Korea': 'Coreia do Sul',
+      'Czech Republic': 'Rep. Tcheca', 'Canada': 'Canadá', 'Bosnia and Herzegovina': 'Bósnia-Herz.',
+      'Qatar': 'Catar', 'Switzerland': 'Suíça', 'Brazil': 'Brasil', 'Morocco': 'Marrocos',
+      'Haiti': 'Haiti', 'Scotland': 'Escócia', 'United States': 'EUA', 'Paraguay': 'Paraguai',
+      'Australia': 'Austrália', 'Turkey': 'Turquia', 'Germany': 'Alemanha', 'Curaçao': 'Curaçao',
+      'Ivory Coast': 'Costa do Marfim', 'Ecuador': 'Equador', 'Netherlands': 'Países Baixos',
+      'Japan': 'Japão', 'Sweden': 'Suécia', 'Tunisia': 'Tunísia', 'Belgium': 'Bélgica',
+      'Egypt': 'Egito', 'Iran': 'Irã', 'New Zealand': 'Nova Zelândia', 'Spain': 'Espanha',
+      'Cape Verde': 'Cabo Verde', 'Saudi Arabia': 'Arábia Saudita', 'Uruguay': 'Uruguai',
+      'France': 'França', 'Senegal': 'Senegal', 'Iraq': 'Iraque', 'Norway': 'Noruega',
+      'Argentina': 'Argentina', 'Algeria': 'Argélia', 'Austria': 'Áustria', 'Jordan': 'Jordânia',
+      'Portugal': 'Portugal', 'Democratic Republic of the Congo': 'Congo (RD)',
+      'Uzbekistan': 'Uzbequistão', 'Colombia': 'Colômbia', 'England': 'Inglaterra',
+      'Croatia': 'Croácia', 'Ghana': 'Gana', 'Panama': 'Panamá',
+    }
+
+    const apiGames = gamesRes.games || []
+    const results = apiGames
+      .filter((g: any) => g.finished === 'TRUE' && g.type === 'group')
+      .map((g: any) => {
+        const homeEn = g.home_team_name_en
+        const awayEn = g.away_team_name_en
+        const homePt = NAME_MAP[homeEn] || homeEn
+        const awayPt = NAME_MAP[awayEn] || awayEn
+        // Find group index and team indices
+        const groupIdx = GROUPS.findIndex(gr => gr.name === g.group)
+        if (groupIdx === -1) return null
+        const group = GROUPS[groupIdx]
+        const ai = group.teams.findIndex(t => t.n === homePt)
+        const bi = group.teams.findIndex(t => t.n === awayPt)
+        if (ai === -1 || bi === -1) return null
+        const [a, b] = ai < bi ? [ai, bi] : [bi, ai]
+        const scoreA = ai < bi ? parseInt(g.home_score) : parseInt(g.away_score)
+        const scoreB = ai < bi ? parseInt(g.away_score) : parseInt(g.home_score)
+        return {
+          id: \`group-\${g.group}-\${a}-\${b}\`,
+          played: true,
+          score_home: scoreA,
+          score_away: scoreB,
+        }
+      })
+      .filter(Boolean)
 
     const ranked: Player[] = predictions.map(row => {
       const { total, byStage, exactHits } = calcPointsFromResults(row.data, results || [])
