@@ -136,7 +136,7 @@ export default function Ranking({ onViewPerfil }: { onViewPerfil: (userId: strin
         const scoreA = ai < bi ? parseInt(g.home_score) : parseInt(g.away_score)
         const scoreB = ai < bi ? parseInt(g.away_score) : parseInt(g.home_score)
         return {
-          id: \`group-\${g.group}-\${a}-\${b}\`,
+          id: `group-${g.group}-${a}-${b}`,
           played: true,
           score_home: scoreA,
           score_away: scoreB,
