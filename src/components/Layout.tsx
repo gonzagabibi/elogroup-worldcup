@@ -11,13 +11,14 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
   const { user, signOut } = useAuth()
 
 const navItems = [
+  { id: 'chaveamento', label: 'CHAVEAMENTO', badge: false },
   { id: 'ranking', label: 'RANKING', badge: false },
   { id: 'bolao', label: 'MEU BOLÃO', badge: true },
   { id: 'craques', label: 'CRAQUES', badge: true },
   { id: 'performance', label: 'PERFORMANCE', badge: false },
   { id: 'dashboard', label: 'DASHBOARD', badge: false },
   { id: 'pontuacao', label: 'PONTUAÇÃO', badge: false },
-  { id: 'chaveamento', label: 'CHAVEAMENTO', badge: false },
+  { id: 'instrucoes', label: 'INSTRUÇÕES', badge: false },
 ]
 
   return (

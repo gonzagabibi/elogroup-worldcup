@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import Login from './pages/Login'
 import Dashboard from './pages/Dashboard'
+import Instrucoes from './pages/Instrucoes'
 import Bolao from './pages/Bolao'
 import Ranking from './pages/Ranking'
 import Pontuacao from './pages/Pontuacao'
@@ -12,11 +13,11 @@ import Layout from './components/Layout'
 import Chaveamento from './pages/Chaveamento'
 
 
-type Page = 'dashboard' | 'bolao' | 'ranking' | 'pontuacao' | 'performance' | 'craques' | 'perfil' | 'chaveamento'
+type Page = 'dashboard' | 'instrucoes' | 'bolao' | 'ranking' | 'pontuacao' | 'performance' | 'craques' | 'perfil' | 'chaveamento'
 
 function AppContent() {
   const { user, loading } = useAuth()
-  const [currentPage, setCurrentPage] = useState<Page>('dashboard')
+  const [currentPage, setCurrentPage] = useState<Page>('chaveamento')
   const [perfilUserId, setPerfilUserId] = useState<string | null>(null)
 
   if (loading) return (
@@ -38,6 +39,7 @@ function AppContent() {
   return (
     <Layout currentPage={currentPage} onNavigate={(page) => setCurrentPage(page as Page)}>
       {currentPage === 'dashboard' && <Dashboard />}
+      {currentPage === 'instrucoes' && <Instrucoes />}
       {currentPage === 'chaveamento' && <Chaveamento />}
       {currentPage === 'bolao' && <Bolao />}
       {currentPage === 'ranking' && <Ranking onViewPerfil={navigateToPerfil} />}

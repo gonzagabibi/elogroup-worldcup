@@ -1,111 +1,214 @@
+import { useState, useEffect } from 'react'
+
+const FLAG_MAP: Record<string, string> = {
+  'Mexico': 'mx', 'South Africa': 'za', 'South Korea': 'kr', 'Czech Republic': 'cz',
+  'Canada': 'ca', 'Bosnia and Herzegovina': 'ba', 'Qatar': 'qa', 'Switzerland': 'ch',
+  'Brazil': 'br', 'Morocco': 'ma', 'Haiti': 'ht', 'Scotland': 'gb-sct',
+  'United States': 'us', 'Paraguay': 'py', 'Australia': 'au', 'Turkey': 'tr',
+  'Germany': 'de', 'Curaçao': 'cw', 'Ivory Coast': 'ci', 'Ecuador': 'ec',
+  'Netherlands': 'nl', 'Japan': 'jp', 'Sweden': 'se', 'Tunisia': 'tn',
+  'Belgium': 'be', 'Egypt': 'eg', 'Iran': 'ir', 'New Zealand': 'nz',
+  'Spain': 'es', 'Cape Verde': 'cv', 'Saudi Arabia': 'sa', 'Uruguay': 'uy',
+  'France': 'fr', 'Senegal': 'sn', 'Iraq': 'iq', 'Norway': 'no',
+  'Argentina': 'ar', 'Algeria': 'dz', 'Austria': 'at', 'Jordan': 'jo',
+  'Portugal': 'pt', 'Democratic Republic of the Congo': 'cd', 'Uzbekistan': 'uz', 'Colombia': 'co',
+  'England': 'gb-eng', 'Croatia': 'hr', 'Ghana': 'gh', 'Panama': 'pa',
+}
+
+type Game = {
+  id: string
+  home_team_name_en: string
+  away_team_name_en: string
+  home_score: string
+  away_score: string
+  finished: string
+  time_elapsed: string
+  local_date: string
+  group: string
+  type: string
+  home_team_label?: string
+  away_team_label?: string
+}
+
+function Flag({ name }: { name: string }) {
+  const code = FLAG_MAP[name]
+  if (!code) return <span className="text-xs text-gray-400">{name.slice(0,3)}</span>
+  return <span className={`fi fi-${code} rounded-sm`} style={{ fontSize: '1.4rem', lineHeight: 1 }}></span>
+}
+
+function parseDate(localDate: string): Date {
+  const [datePart, timePart] = localDate.split(' ')
+  const [month, day, year] = datePart.split('/')
+  return new Date(`${year}-${month}-${day}T${timePart}:00`)
+}
+
+function formatDate(localDate: string): string {
+  const d = parseDate(localDate)
+  return d.toLocaleDateString('pt-BR', { weekday: 'short', day: '2-digit', month: '2-digit' })
+}
+
+function formatTime(localDate: string): string {
+  const d = parseDate(localDate)
+  return d.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+}
+
+function GameCard({ game }: { game: Game }) {
+  const isLive = game.finished === 'FALSE' && game.time_elapsed !== 'notstarted'
+  const isFinished = game.finished === 'TRUE'
+  const isUpcoming = game.time_elapsed === 'notstarted' && game.finished === 'FALSE'
+  const homeName = game.home_team_name_en || game.home_team_label || '?'
+  const awayName = game.away_team_name_en || game.away_team_label || '?'
+
+  return (
+    <div className={`bg-white rounded-xl border p-4 ${isLive ? 'border-green-400 shadow-md' : 'border-gray-200'}`}>
+      {isLive && (
+        <div className="flex items-center gap-1.5 mb-2">
+          <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+          <span className="text-xs font-bold text-green-600 tracking-wider">
+            {game.time_elapsed !== 'notstarted' ? `${game.time_elapsed}'` : 'AO VIVO'}
+          </span>
+        </div>
+      )}
+      {isFinished && (
+        <div className="text-xs text-gray-400 font-bold mb-2 tracking-wider">ENCERRADO</div>
+      )}
+      {isUpcoming && (
+        <div className="text-xs text-gray-400 mb-2">
+          {formatDate(game.local_date)} · {formatTime(game.local_date)} (horário local)
+        </div>
+      )}
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-1">
+          {game.home_team_name_en && <Flag name={game.home_team_name_en} />}
+          <span className="text-sm font-semibold truncate">{homeName}</span>
+        </div>
+        {(isLive || isFinished) ? (
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className={`text-xl font-black ${isLive ? 'text-green-600' : 'text-black'}`}>{game.home_score}</span>
+            <span className="text-gray-300 text-sm">×</span>
+            <span className={`text-xl font-black ${isLive ? 'text-green-600' : 'text-black'}`}>{game.away_score}</span>
+          </div>
+        ) : (
+          <div className="text-sm font-bold text-gray-300 flex-shrink-0">VS</div>
+        )}
+        <div className="flex items-center gap-2 flex-1 justify-end">
+          <span className="text-sm font-semibold truncate text-right">{awayName}</span>
+          {game.away_team_name_en && <Flag name={game.away_team_name_en} />}
+        </div>
+      </div>
+      <div className="mt-2 text-xs text-gray-400 text-center">
+        {game.type === 'group' ? `GRUPO ${game.group}` : game.group}
+      </div>
+    </div>
+  )
+}
 
 export default function Dashboard() {
+  const [games, setGames] = useState<Game[]>([])
+  const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [tab, setTab] = useState<'live' | 'today' | 'upcoming' | 'results'>('today')
+
+  const fetchGames = async () => {
+    try {
+      const res = await fetch('https://worldcup26.ir/get/games')
+      const data = await res.json()
+      setGames(data.games || [])
+      setLastUpdated(new Date())
+    } catch (e) {
+      console.error(e)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    fetchGames()
+    const interval = setInterval(fetchGames, 60000) // atualiza a cada 1 min
+    return () => clearInterval(interval)
+  }, [])
+
+  const now = new Date()
+  const todayStr = now.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' })
+
+  const liveGames = games.filter(g => g.finished === 'FALSE' && g.time_elapsed !== 'notstarted')
+  const todayGames = games.filter(g => {
+    const d = parseDate(g.local_date)
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric' }) === todayStr
+  })
+  const upcomingGames = games.filter(g => g.time_elapsed === 'notstarted' && g.finished === 'FALSE' && parseDate(g.local_date) > now).slice(0, 10)
+  const finishedGames = games.filter(g => g.finished === 'TRUE').reverse().slice(0, 20)
+
+  const tabs = [
+    { id: 'live', label: `AO VIVO${liveGames.length ? ` (${liveGames.length})` : ''}` },
+    { id: 'today', label: 'HOJE' },
+    { id: 'upcoming', label: 'PRÓXIMOS' },
+    { id: 'results', label: 'RESULTADOS' },
+  ]
+
+  const currentGames =
+    tab === 'live' ? liveGames :
+    tab === 'today' ? todayGames :
+    tab === 'upcoming' ? upcomingGames :
+    finishedGames
+
+  if (loading) return (
+    <div className="flex items-center justify-center py-20">
+      <div className="text-center">
+        <div className="w-8 h-8 border-2 border-green-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
+        <p className="text-gray-400 text-sm">Carregando jogos...</p>
+      </div>
+    </div>
+  )
+
   return (
     <div>
-      <h1 className="font-black text-3xl tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>DASHBOARD</h1>
-      <p className="text-gray-400 text-sm mb-8">Bem-vindo ao EloGroup World Cup Challenge 2026 🏆</p>
+      <div className="flex items-center justify-between mb-6">
+        <div>
+          <h1 className="font-black text-3xl tracking-widest" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>DASHBOARD</h1>
+          <p className="text-gray-400 text-sm">Copa do Mundo 2026 — jogos em tempo real</p>
+        </div>
+        <div className="text-right">
+          {lastUpdated && (
+            <p className="text-xs text-gray-400">Atualizado {lastUpdated.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</p>
+          )}
+          <button onClick={fetchGames} className="text-xs text-green-600 font-bold hover:underline">↻ Atualizar</button>
+        </div>
+      </div>
 
-      {/* Cards informativos */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        {[
-          { label: 'TIMES', value: '48', sub: '12 grupos' },
-          { label: 'JOGOS', value: '104', sub: 'no total' },
-          { label: 'FASES', value: '6', sub: 'até a final' },
-          { label: 'INÍCIO', value: '11 Jun', sub: 'USA • CAN • MEX' },
-        ].map((card, i) => (
-          <div key={i} className="bg-white border border-gray-200 rounded-xl p-4 text-center">
-            <p className="font-black text-2xl text-black" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{card.value}</p>
-            <p className="text-xs font-bold text-gray-500 tracking-widest mt-1">{card.label}</p>
-            <p className="text-xs text-gray-400">{card.sub}</p>
-          </div>
+      {liveGames.length > 0 && (
+        <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-2 mb-4 flex items-center gap-2">
+          <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+          <span className="text-green-700 text-sm font-bold">{liveGames.length} jogo{liveGames.length > 1 ? 's' : ''} ao vivo agora!</span>
+        </div>
+      )}
+
+      <div className="flex border-b border-gray-200 mb-6 overflow-x-auto">
+        {tabs.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id as typeof tab)}
+            className={`px-4 py-3 text-xs font-semibold tracking-widest border-b-2 whitespace-nowrap transition ${
+              tab === t.id ? 'border-yellow-400 text-black' : 'border-transparent text-gray-400 hover:text-black'
+            }`}>
+            {t.label}
+          </button>
         ))}
       </div>
 
-      {/* Como funciona */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
-        <div className="bg-black px-6 py-3">
-          <span className="text-yellow-400 font-black tracking-widest text-sm" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            🎯 COMO FUNCIONA O BOLÃO
-          </span>
+      {currentGames.length === 0 ? (
+        <div className="text-center py-16 text-gray-400">
+          <div className="text-4xl mb-3">⚽</div>
+          <p className="text-sm">
+            {tab === 'live' ? 'Nenhum jogo ao vivo no momento' :
+             tab === 'today' ? 'Nenhum jogo hoje' :
+             tab === 'upcoming' ? 'Nenhum jogo agendado' :
+             'Nenhum resultado ainda'}
+          </p>
         </div>
-        <div className="p-6">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <div className="flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center text-green-600 font-black text-lg">1</div>
-              <h3 className="font-bold text-sm">Preencha seu Bolão</h3>
-              <p className="text-xs text-gray-500">Aposte os placares de todos os 72 jogos da fase de grupos. O sistema calcula automaticamente quem avança.</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 font-black text-lg">2</div>
-              <h3 className="font-bold text-sm">Complete o Mata-mata</h3>
-              <p className="text-xs text-gray-500">Depois da fase de grupos, continue apostando nos confrontos da Rodada de 32, Oitavas, Quartas, Semi e Final.</p>
-            </div>
-            <div className="flex flex-col gap-2">
-              <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-blue-600 font-black text-lg">3</div>
-              <h3 className="font-bold text-sm">Ganhe Pontos</h3>
-              <p className="text-xs text-gray-500">Acertou o placar exato? Mais pontos! Acertou só o vencedor? Também pontua. Quanto mais difícil o jogo, mais vale acertar.</p>
-            </div>
-          </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+          {currentGames.map(game => <GameCard key={game.id} game={game} />)}
         </div>
-      </div>
-
-      {/* Fluxo das fases */}
-      <div className="bg-white border border-gray-200 rounded-xl overflow-hidden mb-6">
-        <div className="bg-black px-6 py-3">
-          <span className="text-yellow-400 font-black tracking-widest text-sm" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-            📅 FASES DA COPA 2026
-          </span>
-        </div>
-        <div className="p-4">
-          <div className="flex flex-col gap-0">
-            {[
-              { fase: 'Fase de Grupos', times: '48 times', jogos: '72 jogos', datas: '11 Jun – 2 Jul', cor: 'bg-green-500', desc: '12 grupos de 4 times. Top 2 + 8 melhores 3ºs avançam.' },
-              { fase: 'Rodada de 32', times: '32 times', jogos: '16 jogos', datas: '4 – 8 Jul', cor: 'bg-blue-500', desc: 'Mata-mata. Empate no tempo normal vai para pênaltis.' },
-              { fase: 'Oitavas de Final', times: '16 times', jogos: '8 jogos', datas: '10 – 13 Jul', cor: 'bg-purple-500', desc: 'Os 16 classificados disputam as oitavas.' },
-              { fase: 'Quartas de Final', times: '8 times', jogos: '4 jogos', datas: '15 – 16 Jul', cor: 'bg-orange-500', desc: 'Os 8 melhores brigam pelas semifinais.' },
-              { fase: 'Semifinal', times: '4 times', jogos: '2 jogos', datas: '19 – 20 Jul', cor: 'bg-red-500', desc: 'Quatro times, dois lugares na final.' },
-              { fase: 'Final', times: '2 times', jogos: '1 jogo', datas: '26 Jul', cor: 'bg-yellow-500', desc: 'O jogo mais importante. Quem vai ser Campeão do Mundo?' },
-            ].map((f, i, arr) => (
-              <div key={i} className="flex items-start gap-4 py-3 border-b border-gray-100 last:border-0">
-                <div className="flex flex-col items-center flex-shrink-0">
-                  <div className={`w-3 h-3 rounded-full ${f.cor} mt-1`}></div>
-                  {i < arr.length - 1 && <div className="w-0.5 h-8 bg-gray-200 mt-1"></div>}
-                </div>
-                <div className="flex-1">
-                  <div className="flex items-center justify-between flex-wrap gap-1">
-                    <span className="font-bold text-sm">{f.fase}</span>
-                    <span className="text-xs text-gray-400">{f.datas}</span>
-                  </div>
-                  <p className="text-xs text-gray-500 mt-0.5">{f.desc}</p>
-                  <div className="flex gap-3 mt-1">
-                    <span className="text-xs bg-gray-100 px-2 py-0.5 rounded">{f.times}</span>
-                    <span className="text-xs bg-gray-100 px-2 py-0.5 rounded">{f.jogos}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-
-      {/* Dicas */}
-      <div className="bg-black text-white rounded-xl p-6">
-        <h2 className="font-black text-lg tracking-widest mb-4" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>💡 DICAS PARA PONTUAR MAIS</h2>
-        <div className="flex flex-col gap-3 text-sm">
-          {[
-            { icon: '🎯', tip: 'Placar exato vale mais do que acertar só o vencedor — tente ser preciso!' },
-            { icon: '⚡', tip: 'Jogos equilibrados valem mais — acertar uma zebra pode te catapultar no ranking.' },
-            { icon: '🇧🇷', tip: 'Acertos nos jogos do Brasil dão pontos bônus — preste atenção especial!' },
-            { icon: '⚽', tip: 'Preencha também o Bolão dos Craques para garantir pontos bônus extras.' },
-            { icon: '🔒', tip: 'Confirme seu bolão antes do início da Copa. Após isso não é possível editar.' },
-          ].map((d, i) => (
-            <div key={i} className={`flex items-start gap-3 ${i < 4 ? 'border-b border-gray-800 pb-3' : ''}`}>
-              <span className="text-lg flex-shrink-0">{d.icon}</span>
-              <p className="text-gray-300 text-xs">{d.tip}</p>
-            </div>
-          ))}
-        </div>
-      </div>
+      )}
     </div>
   )
 }
