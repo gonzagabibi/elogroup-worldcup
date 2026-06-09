@@ -25,22 +25,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 Retorne APENAS um JSON válido, sem nenhum texto antes ou depois, no seguinte formato:
 {
   "groups": {
-    "0": { "0-1-a": 2, "0-1-b": 1, "0-2-a": 3, "0-2-b": 0, ... },
-    "1": { ... },
-    ...
-    "11": { ... }
+    "0": { "0-1-a": 2, "0-1-b": 1, "0-2-a": 3, "0-2-b": 0, "0-3-a": 1, "0-3-b": 0, "1-2-a": 1, "1-2-b": 1, "1-3-a": 2, "1-3-b": 0, "2-3-a": 1, "2-3-b": 0 },
+    "1": { "0-1-a": 2, "0-1-b": 0, "0-2-a": 3, "0-2-b": 1, "0-3-a": 1, "0-3-b": 1, "1-2-a": 0, "1-2-b": 2, "1-3-a": 1, "1-3-b": 2, "2-3-a": 0, "2-3-b": 3 },
+    "2": {}, "3": {}, "4": {}, "5": {}, "6": {}, "7": {}, "8": {}, "9": {}, "10": {}, "11": {}
   }
 }
 
-Os grupos e suas chaves de índice são:
+Os grupos são:
 ${GROUPS.map((g, gi) => {
-  const matches = MATCHES.map(([a, b]) => 
-    `  "${a}-${b}-a" e "${a}-${b}-b": ${g.teams[a]} x ${g.teams[b]}`
-  ).join('\n')
-  return `Grupo ${g.name} (índice ${gi}):\n${matches}`
-}).join('\n\n')}
+    const matches = MATCHES.map(([a, b]) =>
+      `  "${a}-${b}-a" e "${a}-${b}-b": ${g.teams[a]} x ${g.teams[b]}`
+    ).join('\n')
+    return `Grupo ${g.name} (índice ${gi}):\n${matches}`
+  }).join('\n\n')}
 
-Use seu conhecimento do ranking FIFA 2025 e forma recente dos times para sugerir placares plausíveis. Placares devem ser inteiros entre 0 e 5.`
+Placares devem ser inteiros entre 0 e 5. Retorne SOMENTE o JSON, sem markdown.`
 
   try {
     const response = await fetch('https://api.anthropic.com/v1/messages', {
@@ -57,14 +56,23 @@ Use seu conhecimento do ranking FIFA 2025 e forma recente dos times para sugerir
       }),
     })
 
-    const data = await response.json()
+    const rawText = await response.text()
+    console.log('Anthropic status:', response.status)
+    console.log('Anthropic response:', rawText.slice(0, 500))
+
+    if (!response.ok) {
+      res.status(500).json({ error: `Anthropic error ${response.status}: ${rawText.slice(0, 200)}` })
+      return
+    }
+
+    const data = JSON.parse(rawText)
     const text = data.content?.[0]?.text || ''
     const clean = text.replace(/```json|```/g, '').trim()
     const parsed = JSON.parse(clean)
 
     res.status(200).json(parsed)
   } catch (err) {
-    console.error(err)
-    res.status(500).json({ error: 'Erro ao gerar sugestão' })
+    console.error('Caught error:', err)
+    res.status(500).json({ error: String(err) })
   }
 }
