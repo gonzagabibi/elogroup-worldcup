@@ -189,6 +189,12 @@ export default function Bolao() {
     if (locked) return
     const d = AI_DATA[profileKey]
     if (!d) return
+
+    // Build team lookup: name -> {n, c}
+    const teamMap: Record<string, Team> = {}
+    GROUPS.forEach(g => g.teams.forEach(t => { teamMap[t.n] = t }))
+
+    // Convert scores
     const newScores: Record<number, Record<string, string>> = {}
     for (const [gi, gs] of Object.entries(d.scores)) {
       newScores[parseInt(gi)] = {}
@@ -196,14 +202,45 @@ export default function Bolao() {
         newScores[parseInt(gi)][key] = String(val)
       }
     }
+
+    // Convert bracket pairs: string[] -> Team[]
+    const convertBracket = (b: Record<string, string[][]>): Record<string, (Team | null)[][]> => {
+      const result: Record<string, (Team | null)[][]> = {}
+      for (const [stage, pairs] of Object.entries(b)) {
+        result[stage] = pairs.map(pair => pair.map(name => teamMap[name] || null))
+      }
+      return result
+    }
+
+    // Convert bracketWinners: string[] -> Team[]
+    const convertWinners = (bw: Record<string, string[]>): Record<string, (Team | null)[]> => {
+      const result: Record<string, (Team | null)[]> = {}
+      for (const [stage, winners] of Object.entries(bw)) {
+        result[stage] = winners.map(name => teamMap[name] || null)
+      }
+      return result
+    }
+
+    // Convert bracketScores
+    const newBracketScores: Record<string, Scores> = {}
+    for (const [stage, scores] of Object.entries(d.bracketScores as Record<string, Record<string, number>>)) {
+      newBracketScores[stage] = {}
+      for (const [key, val] of Object.entries(scores)) {
+        newBracketScores[stage][key] = String(val)
+      }
+    }
+
+    const newBracket = convertBracket(d.bracket)
+    const newBracketWinners = convertWinners(d.bracketWinners)
+
     setScores(newScores)
-    setBracket(d.bracket)
-    setBracketScores(d.bracketScores)
-    setBracketWinners(d.bracketWinners)
+    setBracket(newBracket)
+    setBracketScores(newBracketScores)
+    setBracketWinners(newBracketWinners)
     setPenaltyWinners({})
     setSelectedProfile(profileKey)
     setAiModal(false)
-    autoSave({ scores: newScores, bracket: d.bracket, bracketScores: d.bracketScores, bracketWinners: d.bracketWinners, penaltyWinners: {} })
+    autoSave({ scores: newScores, bracket: newBracket, bracketScores: newBracketScores, bracketWinners: newBracketWinners, penaltyWinners: {} })
   }
 
   const setScore = (gi: number, key: string, val: string) => {
@@ -389,7 +426,7 @@ export default function Bolao() {
               onClick={() => setAiModal(true)}
               className="flex items-center gap-2 bg-black text-yellow-400 text-xs font-bold px-3 py-2 rounded-lg hover:bg-gray-800 transition tracking-wider"
             >
-              🤖 SUGERIR COM IA
+              ⚡ SUGESTÃO AUTOMÁTICA
             </button>
           )}
           <div className="w-32 h-2 bg-gray-200 rounded-full overflow-hidden">
@@ -567,9 +604,9 @@ export default function Bolao() {
         <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-6 w-full max-w-lg">
             <h3 className="font-black text-xl tracking-widest mb-1" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-              🤖 ESCOLHA SEU ESTILO
+              ESCOLHA SEU ESTILO
             </h3>
-            <p className="text-xs text-gray-400 mb-5">A IA vai preencher todo o seu bolão baseado no perfil escolhido. Você pode editar depois!</p>
+            <p className="text-xs text-gray-400 mb-5">Escolha um estilo e preenchemos todo o seu bolão automaticamente. Você pode editar depois!</p>
             <div className="grid grid-cols-2 gap-2">
               {(Object.entries(AI_PROFILES) as [ProfileKey, typeof AI_PROFILES[ProfileKey]][]).map(([key, profile]) => (
                 <button
