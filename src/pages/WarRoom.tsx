@@ -95,10 +95,6 @@ function getScore(team: Team, attrs: AttrDef[]): number {
   return active.reduce((s, a) => s + (normalize(team[a.key] as number, a) / 100) * (a.weight / totalW), 0)
 }
  
-function Flag({ code, size = 'md' }: { code: string; size?: 'sm' | 'md' }) {
-  const sizes = { sm: '1rem', md: '1.4rem' }
-  return <span className={`fi fi-${code} rounded-sm`} style={{ fontSize: sizes[size], lineHeight: 1, flexShrink: 0 }} />
-}
  
 export default function WarRoom() {
   const [idxA, setIdxA] = useState(5) // Brasil
