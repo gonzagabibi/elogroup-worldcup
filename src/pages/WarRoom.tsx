@@ -77,10 +77,10 @@ const ATTR_DEFS: AttrDef[] = [
   { key:'ataque',              label:'Ataque',             weight:0.22, checked:true, max:100 },
   { key:'defesa',              label:'Defesa',             weight:0.18, checked:true, max:100 },
   { key:'entrosamento',        label:'Entrosamento',       weight:0.13, checked:true, max:100 },
-  { key:'experiencia_copa',    label:'Exp. Copa',          weight:0.15, checked:true, max:100 },
+  { key:'experiencia_copa',    label:'Experiência Copa',          weight:0.15, checked:true, max:100 },
   { key:'valor_mercado',       label:'Valor de mercado',   weight:0.12, checked:true, max:100 },
-  { key:'media_gols',          label:'Méd. gols marcados', weight:0.10, checked:true, max:3.5 },
-  { key:'media_gols_sofridos', label:'Méd. gols sofridos', weight:0.10, checked:true, max:3.5, invert:true },
+  { key:'media_gols',          label:'Média gols marcados', weight:0.10, checked:true, max:3.5 },
+  { key:'media_gols_sofridos', label:'Média gols sofridos', weight:0.10, checked:true, max:3.5, invert:true },
 ]
  
 function normalize(val: number, attr: AttrDef): number {
@@ -253,7 +253,7 @@ export default function WarRoom() {
           </div>
           <div className="flex justify-between text-xs text-gray-400">
             <span>{teamA.flag} {pA}% vitória</span>
-            <span>{pD}% empate</span>
+            <span>{Math.max(0, pD)}% empate</span>
             <span>{pB}% vitória {teamB.flag}</span>
           </div>
  
