@@ -159,7 +159,7 @@ export default function WarRoom() {
   const sB = result?.sB ?? getScore(teamB, attrs)
   const total = sA + sB
   const diff = Math.abs(sA - sB)
-  const pD = Math.min(8, Math.round(8 * (1 - diff * 8)))
+  const pD = Math.max(0, Math.min(8, Math.round(8 * (1 - diff * 8))))
   const pA = Math.round((sA / total) * (100 - pD))
   const pB = Math.max(0, 100 - pA - pD)
   const confidence = diff < 0.03 ? 'Jogo equilibrado' : diff < 0.08 ? 'Leve vantagem para' : 'Favorito:'
