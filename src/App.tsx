@@ -11,9 +11,10 @@ import BolãoCraques from './pages/BolãoCraques'
 import PerfilUsuario from './pages/PerfilUsuario'
 import Layout from './components/Layout'
 import Chaveamento from './pages/Chaveamento'
+import WarRoom from './pages/WarRoom'
 
 
-type Page = 'dashboard' | 'instrucoes' | 'bolao' | 'ranking' | 'pontuacao' | 'performance' | 'craques' | 'perfil' | 'chaveamento'
+type Page = 'dashboard' | 'instrucoes' | 'bolao' | 'ranking' | 'pontuacao' | 'performance' | 'craques' | 'perfil' | 'chaveamento' | 'warroom'
 
 function AppContent() {
   const { user, loading } = useAuth()
@@ -46,6 +47,7 @@ function AppContent() {
       {currentPage === 'pontuacao' && <Pontuacao />}
       {currentPage === 'performance' && <MinhaPerformance />}
       {currentPage === 'craques' && <BolãoCraques />}
+      {currentPage === 'warroom' && <WarRoom />}
       {currentPage === 'perfil' && perfilUserId && (
         <PerfilUsuario
           userId={perfilUserId}
