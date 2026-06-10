@@ -205,8 +205,7 @@ export default function Chaveamento() {
   const qtWR = (winners.quartas || []).slice(2, 4)
  
   // Semi: left 0, right 1
-  const semiWL = winners.semi?.[0]
-  const semiWR = winners.semi?.[1]
+
  
   return (
     <div>
