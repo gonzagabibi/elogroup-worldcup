@@ -29,7 +29,7 @@ const THIRD_SLOTS = [
   { winner: 11, eligible: ['E','H','I','J','K'] },
 ]
  
-function buildR32(classified: Record<number, Team[]>, thirds: Standing[]): (Team | null)[][] {
+function buildR32(cls: Record<number, Team[]>, thirds: Standing[]): (Team | null)[][] {
   const sorted = [...thirds].sort((a, b) =>
     b.pts !== a.pts ? b.pts - a.pts : b.saldo !== a.saldo ? b.saldo - a.saldo : b.gf - a.gf
   )
@@ -42,7 +42,7 @@ function buildR32(classified: Record<number, Team[]>, thirds: Standing[]): (Team
     if (eligible.length > 0) { t[slot.winner] = eligible[0].team; used.add(eligible[0].groupName) }
     else { const fb = best8.find(x => !used.has(x.groupName)); t[slot.winner] = fb?.team || null; if (fb) used.add(fb.groupName) }
   }
-  const c = classified
+  const c = cls
   return [
     [c[0]?.[1], c[1]?.[1]], [c[4]?.[0], t[4]], [c[5]?.[0], c[2]?.[1]], [c[2]?.[0], c[5]?.[1]],
     [c[8]?.[0], t[8]], [c[4]?.[1], c[8]?.[1]], [c[0]?.[0], t[0]], [c[11]?.[0], t[11]],
@@ -51,52 +51,82 @@ function buildR32(classified: Record<number, Team[]>, thirds: Standing[]): (Team
   ]
 }
  
-function Flag({ code, size = 'md' }: { code: string; size?: 'sm' | 'md' | 'lg' }) {
-  const sizes = { sm: '0.9rem', md: '1.2rem', lg: '1.6rem' }
+function Flag({ code, size = 'sm' }: { code: string; size?: 'sm' | 'md' }) {
+  const sizes = { sm: '0.85rem', md: '1.1rem' }
   return <span className={`fi fi-${code} rounded-sm`} style={{ fontSize: sizes[size], lineHeight: 1, flexShrink: 0 }} />
 }
  
-function TeamBall({ team, onClick, isWinner, isLoser, size = 'md' }: {
-  team: Team | null, onClick?: () => void, isWinner?: boolean, isLoser?: boolean, size?: 'sm' | 'md'
-}) {
-  const dim = size === 'sm' ? 'w-8 h-8' : 'w-10 h-10'
-  const flagSize = size === 'sm' ? 'sm' : 'md'
-  if (!team) return (
-    <div className={`${dim} rounded-full border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center flex-shrink-0`} />
+const TOTAL_H = 576
+const CONNECTOR_W = 18
+ 
+function Connector({ count, side }: { count: number; side: 'L' | 'R' }) {
+  const cellH = TOTAL_H / count
+  const paths: string[] = []
+  for (let i = 0; i < count; i += 2) {
+    const y1 = cellH * i + cellH / 2
+    const y2 = cellH * (i + 1) + cellH / 2
+    const ym = (y1 + y2) / 2
+    if (side === 'L') {
+      paths.push(`M0,${y1} H${CONNECTOR_W/2} V${ym} M0,${y2} H${CONNECTOR_W/2} V${ym} M${CONNECTOR_W/2},${ym} H${CONNECTOR_W}`)
+    } else {
+      paths.push(`M${CONNECTOR_W},${y1} H${CONNECTOR_W/2} V${ym} M${CONNECTOR_W},${y2} H${CONNECTOR_W/2} V${ym} M${CONNECTOR_W/2},${ym} H0`)
+    }
+  }
+  return (
+    <svg width={CONNECTOR_W} height={TOTAL_H} style={{ display: 'block', flexShrink: 0, marginTop: 20 }}>
+      {paths.map((d, i) => <path key={i} d={d} fill="none" stroke="#D3D1C7" strokeWidth="1.5" />)}
+    </svg>
   )
+}
+ 
+function TeamSlot({ team, winner, onClick }: { team: Team | null; winner: Team | null; onClick?: () => void }) {
+  if (!team) return (
+    <div className="flex items-center gap-1.5 px-1.5 py-1 rounded opacity-30 h-7">
+      <div className="w-5 h-5 rounded-full border border-dashed border-gray-300 flex-shrink-0" />
+      <span className="text-xs text-gray-300">—</span>
+    </div>
+  )
+  const isW = winner?.n === team.n
+  const isL = winner && winner.n !== team.n
   return (
     <button
       onClick={onClick}
-      className={`${dim} rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all
-        ${isWinner ? 'border-green-500 bg-green-50 scale-110 shadow-sm' :
-          isLoser ? 'border-gray-200 bg-gray-50 opacity-40' :
-          onClick ? 'border-gray-300 bg-white hover:border-green-400 hover:scale-105 cursor-pointer' :
-          'border-gray-200 bg-white cursor-default'}`}
+      disabled={!onClick}
+      className={`flex items-center gap-1.5 px-1.5 py-1 rounded h-7 text-left transition-all
+        ${isW ? 'bg-green-50' : isL ? 'opacity-30' : onClick ? 'hover:bg-gray-50' : ''}
+        ${onClick ? 'cursor-pointer' : 'cursor-default'}`}
     >
-      <Flag code={team.c} size={flagSize} />
+      <div className={`w-5 h-5 rounded-full border flex items-center justify-center flex-shrink-0
+        ${isW ? 'border-green-500 bg-green-50' : 'border-gray-200 bg-white'}`}>
+        <Flag code={team.c} size="sm" />
+      </div>
+      <span className={`text-xs max-w-14 truncate ${isL ? 'text-gray-300' : 'text-gray-700'}`}>{team.n}</span>
     </button>
   )
 }
  
-function MatchSlot({ teamA, teamB, winner, onPick, matchNum }: {
-  teamA: Team | null, teamB: Team | null, winner: Team | null,
-  onPick: (team: Team) => void, matchNum?: number
+function BracketCol({ pairs, winners, label, onPick }: {
+  pairs: (Team | null)[][]
+  winners: (Team | null)[]
+  label: string
+  onPick: (matchIdx: number, team: Team) => void
 }) {
+  const n = pairs.length
+  const cellH = TOTAL_H / n
   return (
-    <div className="flex flex-col items-center gap-1">
-      {matchNum !== undefined && <span className="text-xs text-gray-300 font-mono">{matchNum + 1}</span>}
-      <div className="flex flex-col items-center gap-1">
-        <div className="flex items-center gap-1.5">
-          <TeamBall team={teamA} onClick={teamA && teamB ? () => onPick(teamA) : undefined}
-            isWinner={!!winner && winner.n === teamA?.n} isLoser={!!winner && winner.n !== teamA?.n} />
-          {teamA && <span className="text-xs text-gray-500 max-w-14 truncate hidden md:block">{teamA.n}</span>}
-        </div>
-        <span className="text-gray-300 text-xs leading-none">×</span>
-        <div className="flex items-center gap-1.5">
-          <TeamBall team={teamB} onClick={teamA && teamB ? () => onPick(teamB) : undefined}
-            isWinner={!!winner && winner.n === teamB?.n} isLoser={!!winner && winner.n !== teamB?.n} />
-          {teamB && <span className="text-xs text-gray-500 max-w-14 truncate hidden md:block">{teamB.n}</span>}
-        </div>
+    <div style={{ flexShrink: 0 }}>
+      <div className="text-xs font-semibold text-gray-400 tracking-widest uppercase mb-1 text-center" style={{ fontSize: 9 }}>{label}</div>
+      <div style={{ height: TOTAL_H }}>
+        {pairs.map((pair, i) => {
+          const ta = pair?.[0], tb = pair?.[1]
+          const w = winners[i]
+          return (
+            <div key={i} style={{ height: cellH, display: 'flex', flexDirection: 'column', justifyContent: 'center', gap: 2, padding: '0 4px' }}>
+              <TeamSlot team={ta} winner={w} onClick={ta && tb ? () => onPick(i, ta) : undefined} />
+              <TeamSlot team={tb} winner={w} onClick={ta && tb ? () => onPick(i, tb) : undefined} />
+            </div>
+          )
+        })}
       </div>
     </div>
   )
@@ -105,107 +135,93 @@ function MatchSlot({ teamA, teamB, winner, onPick, matchNum }: {
 export default function Chaveamento() {
   const [activeTab, setActiveTab] = useState<'simulacao' | 'aovivo'>('simulacao')
   const [simStep, setSimStep] = useState<'grupos' | 'bracket'>('grupos')
- 
-  // Grupos: classified[gi] = [1st, 2nd, 3rd]
   const [classified, setClassified] = useState<Record<number, (Team | null)[]>>(
     Object.fromEntries(GROUPS.map((_, i) => [i, [null, null, null]]))
   )
  
-  // Bracket
-  const [r32, setR32] = useState<(Team | null)[][]>(Array(16).fill(null).map(() => [null, null]))
-  const [oitavas, setOitavas] = useState<(Team | null)[][]>(Array(8).fill(null).map(() => [null, null]))
-  const [quartas, setQuartas] = useState<(Team | null)[][]>(Array(4).fill(null).map(() => [null, null]))
-  const [semi, setSemi] = useState<(Team | null)[][]>(Array(2).fill(null).map(() => [null, null]))
-  const [final, setFinal] = useState<(Team | null)[][]>([[null, null]])
-  const [winners, setWinners] = useState<Record<string, (Team | null)[]>>({
-    r32: Array(16).fill(null), oitavas: Array(8).fill(null),
-    quartas: Array(4).fill(null), semi: Array(2).fill(null), final: Array(1).fill(null)
-  })
+  // Bracket state
+  const emptyPairs = (n: number) => Array(n).fill(null).map(() => [null, null] as (Team | null)[])
+  const [r32, setR32] = useState<(Team | null)[][]>(emptyPairs(8))
+  const [oitL, setOitL] = useState<(Team | null)[][]>(emptyPairs(4))
+  const [oitR, setOitR] = useState<(Team | null)[][]>(emptyPairs(4))
+  const [qtL, setQtL] = useState<(Team | null)[][]>(emptyPairs(2))
+  const [qtR, setQtR] = useState<(Team | null)[][]>(emptyPairs(2))
+  const [semiL, setSemiL] = useState<(Team | null)[][]>(emptyPairs(1))
+  const [semiR, setSemiR] = useState<(Team | null)[][]>(emptyPairs(1))
+  const [finalPair, setFinalPair] = useState<(Team | null)[]>([null, null])
+  const [champion, setChampion] = useState<Team | null>(null)
+ 
+  const [winnersL, setWinnersL] = useState<Record<string, (Team | null)[]>>({ r32: Array(8).fill(null), oit: Array(4).fill(null), qt: Array(2).fill(null), semi: [null] })
+  const [winnersR, setWinnersR] = useState<Record<string, (Team | null)[]>>({ r32: Array(8).fill(null), oit: Array(4).fill(null), qt: Array(2).fill(null), semi: [null] })
  
   const selectClassified = (gi: number, ti: number) => {
     const team = GROUPS[gi].teams[ti]
     const sel = [...(classified[gi] || [null, null, null])]
     const pos = sel.findIndex(t => t?.n === team.n)
-    if (pos >= 0) {
-      sel.splice(pos, 1)
-      sel.push(null)
-    } else {
-      const empty = sel.indexOf(null)
-      if (empty >= 0) sel[empty] = team
-    }
+    if (pos >= 0) { sel.splice(pos, 1); sel.push(null) }
+    else { const empty = sel.indexOf(null); if (empty >= 0) sel[empty] = team }
     setClassified(prev => ({ ...prev, [gi]: sel }))
   }
  
   const allGroupsDone = GROUPS.every((_, gi) => classified[gi]?.[1] !== null)
+  const groupsDone = GROUPS.filter((_, gi) => classified[gi]?.[1] !== null).length
  
   const startBracket = () => {
     const cls: Record<number, Team[]> = {}
     const thirds: Standing[] = []
     GROUPS.forEach((_, gi) => {
       const sel = classified[gi] || []
-      cls[gi] = [sel[0]!, sel[1]!].filter(Boolean)
+      cls[gi] = [sel[0], sel[1]].filter(Boolean) as Team[]
       if (sel[2]) thirds.push({ team: sel[2], pts: 0, saldo: 0, gf: 0, groupName: GROUPS[gi].name })
     })
     const pairs = buildR32(cls, thirds)
-    setR32(pairs.map(p => p || [null, null]))
-    setOitavas(Array(8).fill(null).map(() => [null, null]))
-    setQuartas(Array(4).fill(null).map(() => [null, null]))
-    setSemi(Array(2).fill(null).map(() => [null, null]))
-    setFinal([[null, null]])
-    setWinners({ r32: Array(16).fill(null), oitavas: Array(8).fill(null), quartas: Array(4).fill(null), semi: Array(2).fill(null), final: Array(1).fill(null) })
+    setR32(pairs.map(p => [p[0] || null, p[1] || null]))
+    setOitL(emptyPairs(4)); setOitR(emptyPairs(4))
+    setQtL(emptyPairs(2)); setQtR(emptyPairs(2))
+    setSemiL(emptyPairs(1)); setSemiR(emptyPairs(1))
+    setFinalPair([null, null]); setChampion(null)
+    setWinnersL({ r32: Array(8).fill(null), oit: Array(4).fill(null), qt: Array(2).fill(null), semi: [null] })
+    setWinnersR({ r32: Array(8).fill(null), oit: Array(4).fill(null), qt: Array(2).fill(null), semi: [null] })
     setSimStep('bracket')
   }
  
-  const pickWinner = (stage: string, idx: number, team: Team) => {
-    const newW = { ...winners, [stage]: [...(winners[stage] || [])] }
-    newW[stage][idx] = team
+  const pickSide = (side: 'L' | 'R', stage: string, mi: number, team: Team) => {
+    const getW = side === 'L' ? winnersL : winnersR
+    const setW = side === 'L' ? setWinnersL : setWinnersR
+    const newW = { ...getW, [stage]: [...(getW[stage] || [])] }
+    newW[stage][mi] = team
+    setW(newW)
  
-    const nextStage: Record<string, string> = { r32: 'oitavas', oitavas: 'quartas', quartas: 'semi', semi: 'final' }
-    const setPairs: Record<string, React.Dispatch<React.SetStateAction<(Team | null)[][]>>> = {
-      oitavas: setOitavas, quartas: setQuartas, semi: setSemi, final: setFinal
+    const next = { r32: 'oit', oit: 'qt', qt: 'semi' } as Record<string, string>
+    const nextStage = next[stage]
+    const pi = Math.floor(mi / 2)
+    const partner = newW[stage][mi % 2 === 0 ? mi + 1 : mi - 1]
+ 
+    if (!nextStage) {
+      setFinalPair(prev => { const n = [...prev]; n[side === 'L' ? 0 : 1] = team; return n })
+      setChampion(null)
+      return
     }
-    const next = nextStage[stage]
-    if (next) {
-      const pairIdx = Math.floor(idx / 2)
-      const partnerIdx = idx % 2 === 0 ? idx + 1 : idx - 1
-      const partner = newW[stage][partnerIdx]
-      if (partner) {
-        const a = idx % 2 === 0 ? team : partner
-        const b = idx % 2 === 0 ? partner : team
-        setPairs[next](prev => {
-          const updated = [...prev]
-          updated[pairIdx] = [a, b]
-          return updated
-        })
-        newW[next] = [...(newW[next] || [])]
-        newW[next][pairIdx] = null
+ 
+    if (partner) {
+      const newPair: (Team | null)[] = mi % 2 === 0 ? [team, partner] : [partner, team]
+      if (side === 'L') {
+        if (nextStage === 'oit') setOitL(prev => { const n = [...prev]; n[pi] = newPair; return n })
+        else if (nextStage === 'qt') setQtL(prev => { const n = [...prev]; n[pi] = newPair; return n })
+        else if (nextStage === 'semi') setSemiL([[newPair[0], newPair[1]]])
+        newW[nextStage] = [...(newW[nextStage] || [])]; newW[nextStage][pi] = null; setW(newW)
+      } else {
+        if (nextStage === 'oit') setOitR(prev => { const n = [...prev]; n[pi] = newPair; return n })
+        else if (nextStage === 'qt') setQtR(prev => { const n = [...prev]; n[pi] = newPair; return n })
+        else if (nextStage === 'semi') setSemiR([[newPair[0], newPair[1]]])
+        newW[nextStage] = [...(newW[nextStage] || [])]; newW[nextStage][pi] = null; setW(newW)
       }
     }
-    setWinners(newW)
+    if (nextStage === 'semi' || nextStage === 'qt' || nextStage === 'oit') {
+      setFinalPair(prev => { const n = [...prev]; n[side === 'L' ? 0 : 1] = null; return n })
+      setChampion(null)
+    }
   }
- 
-  const champion = winners.final?.[0]
- 
-  // Left side: matches 0-7, Right side: matches 8-15
-  const leftPairs = r32.slice(0, 8)
-  const rightPairs = r32.slice(8, 16)
-  const leftWinners = (winners.r32 || []).slice(0, 8)
-  const rightWinners = (winners.r32 || []).slice(8, 16)
- 
-  // Oitavas: left 0-3, right 4-7
-  const oitL = oitavas.slice(0, 4)
-  const oitR = oitavas.slice(4, 8)
-  const oitWL = (winners.oitavas || []).slice(0, 4)
-  const oitWR = (winners.oitavas || []).slice(4, 8)
- 
-  // Quartas: left 0-1, right 2-3
-  const qtL = quartas.slice(0, 2)
-  const qtR = quartas.slice(2, 4)
-  const qtWL = (winners.quartas || []).slice(0, 2)
-  const qtWR = (winners.quartas || []).slice(2, 4)
- 
-  // Semi: left 0, right 1
-
  
   return (
     <div>
@@ -214,51 +230,37 @@ export default function Chaveamento() {
         <p className="text-gray-400 text-sm">Copa do Mundo 2026 — USA · CAN · MEX · 11 Jun a 19 Jul</p>
       </div>
  
-      {/* Tabs principais */}
       <div className="flex border-b border-gray-200 mb-6">
-        {[
-          { id: 'simulacao', label: '⚽ SIMULAÇÃO' },
-          { id: 'aovivo', label: '🔴 AO VIVO' },
-        ].map(tab => (
+        {[{ id: 'simulacao', label: '⚽ SIMULAÇÃO' }, { id: 'aovivo', label: '🔴 AO VIVO' }].map(tab => (
           <button key={tab.id} onClick={() => setActiveTab(tab.id as any)}
             className={`px-6 py-3 text-xs font-semibold tracking-widest border-b-2 transition ${
               activeTab === tab.id ? 'border-yellow-400 text-black' : 'border-transparent text-gray-400 hover:text-black'
-            }`}>
-            {tab.label}
-          </button>
+            }`}>{tab.label}</button>
         ))}
       </div>
  
-      {/* ABA AO VIVO */}
+      {/* AO VIVO */}
       {activeTab === 'aovivo' && (
         <div className="flex flex-col gap-4">
           <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-3 text-center">
-            <p className="text-yellow-800 text-xs font-medium">
-              ⏳ Os confrontos serão preenchidos automaticamente conforme os jogos acontecem
-            </p>
+            <p className="text-yellow-800 text-xs font-medium">⏳ Os confrontos serão preenchidos automaticamente conforme os jogos acontecem</p>
           </div>
-          {['RODADA DE 32', 'OITAVAS DE FINAL', 'QUARTAS DE FINAL', 'SEMIFINAL', 'FINAL'].map((label, si) => {
-            const counts = [16, 8, 4, 2, 1]
-            const cols = ['grid-cols-2 md:grid-cols-4', 'grid-cols-2 md:grid-cols-4', 'grid-cols-2', 'grid-cols-1 md:grid-cols-2', 'grid-cols-1 max-w-xs mx-auto']
+          {['RODADA DE 32','OITAVAS DE FINAL','QUARTAS DE FINAL','SEMIFINAL','FINAL'].map((label, si) => {
+            const counts = [16,8,4,2,1]
+            const cols = ['grid-cols-2 md:grid-cols-4','grid-cols-2 md:grid-cols-4','grid-cols-2','grid-cols-1 md:grid-cols-2','grid-cols-1 max-w-xs mx-auto']
             return (
               <div key={label}>
                 <div className="flex items-center gap-3 mb-3">
                   <h2 className="font-black text-sm tracking-widest" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{label}</h2>
-                  <div className="h-px flex-1 bg-gray-200"></div>
-                  <span className="text-xs text-gray-400">{counts[si]} {counts[si] === 1 ? 'jogo' : 'jogos'}</span>
+                  <div className="h-px flex-1 bg-gray-200" />
+                  <span className="text-xs text-gray-400">{counts[si]} {counts[si]===1?'jogo':'jogos'}</span>
                 </div>
                 <div className={`grid ${cols[si]} gap-2`}>
                   {Array.from({ length: counts[si] }).map((_, i) => (
-                    <div key={i} className={`rounded-lg border p-2 bg-white ${si === 4 ? 'border-yellow-300' : 'border-gray-200'}`}>
-                      <div className="flex items-center gap-2 px-1 py-1">
-                        <div className="w-6 h-6 rounded-full bg-gray-100 flex-shrink-0" />
-                        <span className="text-xs text-gray-300">A definir</span>
-                      </div>
+                    <div key={i} className={`rounded-lg border p-2 bg-white ${si===4?'border-yellow-300':'border-gray-200'}`}>
+                      <div className="flex items-center gap-2 px-1 py-1"><div className="w-5 h-5 rounded-full bg-gray-100 flex-shrink-0" /><span className="text-xs text-gray-300">A definir</span></div>
                       <div className="text-center text-gray-200 text-xs my-0.5">×</div>
-                      <div className="flex items-center gap-2 px-1 py-1">
-                        <div className="w-6 h-6 rounded-full bg-gray-100 flex-shrink-0" />
-                        <span className="text-xs text-gray-300">A definir</span>
-                      </div>
+                      <div className="flex items-center gap-2 px-1 py-1"><div className="w-5 h-5 rounded-full bg-gray-100 flex-shrink-0" /><span className="text-xs text-gray-300">A definir</span></div>
                     </div>
                   ))}
                 </div>
@@ -268,63 +270,49 @@ export default function Chaveamento() {
         </div>
       )}
  
-      {/* ABA SIMULAÇÃO */}
+      {/* SIMULAÇÃO */}
       {activeTab === 'simulacao' && (
         <div>
           <p className="text-gray-400 text-sm mb-6">Simule a Copa do Mundo 2026 escolhendo os classificados de cada grupo e avançando fase a fase até o campeão.</p>
  
-          {/* Sub-tabs */}
           <div className="flex gap-2 mb-6">
             <button onClick={() => setSimStep('grupos')}
-              className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${simStep === 'grupos' ? 'bg-black text-yellow-400' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
+              className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${simStep==='grupos'?'bg-black text-yellow-400':'bg-gray-100 text-gray-500 hover:bg-gray-200'}`}>
               1. GRUPOS
             </button>
             <button onClick={() => allGroupsDone && setSimStep('bracket')}
-              className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${
-                simStep === 'bracket' ? 'bg-black text-yellow-400' :
-                allGroupsDone ? 'bg-gray-100 text-gray-500 hover:bg-gray-200' : 'bg-gray-100 text-gray-300 cursor-not-allowed'}`}>
+              className={`px-4 py-2 text-xs font-semibold rounded-lg transition ${simStep==='bracket'?'bg-black text-yellow-400':allGroupsDone?'bg-gray-100 text-gray-500 hover:bg-gray-200':'bg-gray-100 text-gray-300 cursor-not-allowed'}`}>
               2. MATA-MATA
             </button>
           </div>
  
-          {/* STEP GRUPOS */}
+          {/* GRUPOS */}
           {simStep === 'grupos' && (
             <div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
                 {GROUPS.map((g, gi) => {
-                  const sel = classified[gi] || [null, null, null]
+                  const sel = classified[gi] || [null,null,null]
                   const done = sel[1] !== null
                   return (
-                    <div key={g.name} className={`bg-white border rounded-xl overflow-hidden ${done ? 'border-green-200' : 'border-gray-200'}`}>
-                      <div className={`px-4 py-2 flex items-center justify-between ${done ? 'bg-green-600' : 'bg-black'}`}>
-                        <span className="font-black text-yellow-400 tracking-widest text-sm" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                          GRUPO {g.name}
-                        </span>
+                    <div key={g.name} className={`bg-white border rounded-xl overflow-hidden ${done?'border-green-200':'border-gray-200'}`}>
+                      <div className={`px-4 py-2 flex items-center justify-between ${done?'bg-green-600':'bg-black'}`}>
+                        <span className="font-black text-yellow-400 tracking-widest text-sm" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>GRUPO {g.name}</span>
                         {done && <span className="text-white text-xs font-bold">✓</span>}
                       </div>
                       <div className="p-2">
                         {g.teams.map((t, ti) => {
                           const pos = sel.findIndex(s => s?.n === t.n)
-                          const labels = ['1°', '2°', '3°']
-                          const colors = [
-                            'bg-green-50 border-green-300',
-                            'bg-blue-50 border-blue-200',
-                            'bg-gray-50 border-gray-200',
-                          ]
-                          const badgeColors = ['bg-green-600 text-white', 'bg-blue-500 text-white', 'bg-gray-400 text-white']
+                          const colors = ['bg-green-50 border-green-300','bg-blue-50 border-blue-200','bg-gray-50 border-gray-200']
+                          const badges = ['bg-green-600 text-white','bg-blue-500 text-white','bg-gray-400 text-white']
+                          const labels = ['1°','2°','3°']
                           return (
                             <button key={t.n} onClick={() => selectClassified(gi, ti)}
-                              className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg mb-1 border transition text-left
-                                ${pos >= 0 ? colors[pos] : 'border-transparent hover:bg-gray-50'}`}>
+                              className={`w-full flex items-center gap-2 px-2 py-2 rounded-lg mb-1 border transition text-left ${pos>=0?colors[pos]:'border-transparent hover:bg-gray-50'}`}>
                               <div className="w-7 h-7 rounded-full border border-gray-200 bg-white flex items-center justify-center flex-shrink-0">
-                                <Flag code={t.c} size="sm" />
+                                <Flag code={t.c} size="md" />
                               </div>
                               <span className="text-xs font-medium flex-1 truncate">{t.n}</span>
-                              {pos >= 0 && (
-                                <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${badgeColors[pos]}`}>
-                                  {labels[pos]}
-                                </span>
-                              )}
+                              {pos >= 0 && <span className={`text-xs font-bold px-1.5 py-0.5 rounded ${badges[pos]}`}>{labels[pos]}</span>}
                             </button>
                           )
                         })}
@@ -334,17 +322,13 @@ export default function Chaveamento() {
                 })}
               </div>
  
-              {/* Progress */}
               <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
                 <div className="flex items-center justify-between mb-2">
                   <span className="text-xs font-bold text-gray-500">GRUPOS COMPLETOS</span>
-                  <span className="text-xs font-bold text-green-600">
-                    {GROUPS.filter((_, gi) => classified[gi]?.[1] !== null).length}/12
-                  </span>
+                  <span className="text-xs font-bold text-green-600">{groupsDone}/12</span>
                 </div>
                 <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                  <div className="h-full bg-green-600 rounded-full transition-all"
-                    style={{ width: `${(GROUPS.filter((_, gi) => classified[gi]?.[1] !== null).length / 12) * 100}%` }} />
+                  <div className="h-full bg-green-600 rounded-full transition-all" style={{ width: `${(groupsDone/12)*100}%` }} />
                 </div>
               </div>
  
@@ -358,153 +342,69 @@ export default function Chaveamento() {
             </div>
           )}
  
-          {/* STEP BRACKET */}
+          {/* BRACKET */}
           {simStep === 'bracket' && (
             <div>
               <p className="text-xs text-gray-400 mb-4">Clique no time vencedor de cada confronto para avançar de fase.</p>
+              <div style={{ overflowX: 'auto' }}>
+                <div style={{ display: 'flex', alignItems: 'flex-start', minWidth: 900 }}>
  
-              {/* Bracket espelhado */}
-              <div className="overflow-x-auto">
-                <div style={{ minWidth: '700px' }}>
+                  {/* LADO ESQUERDO */}
+                  <BracketCol pairs={r32.slice(0,8)} winners={winnersL.r32.slice(0,8)} label="Rodada de 32"
+                    onPick={(mi, t) => pickSide('L','r32',mi,t)} />
+                  <Connector count={8} side="L" />
+                  <BracketCol pairs={oitL} winners={winnersL.oit} label="Oitavas"
+                    onPick={(mi, t) => pickSide('L','oit',mi,t)} />
+                  <Connector count={4} side="L" />
+                  <BracketCol pairs={qtL} winners={winnersL.qt} label="Quartas"
+                    onPick={(mi, t) => pickSide('L','qt',mi,t)} />
+                  <Connector count={2} side="L" />
+                  <BracketCol pairs={semiL} winners={winnersL.semi} label="Semi"
+                    onPick={(mi, t) => pickSide('L','semi',mi,t)} />
+                  <Connector count={1} side="L" />
  
-                  {/* R32 */}
-                  <div className="mb-1">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-black tracking-widest text-gray-400" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>RODADA DE 32</span>
-                      <div className="h-px flex-1 bg-gray-100" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      {/* Esquerda */}
-                      <div className="grid grid-cols-4 gap-1">
-                        {leftPairs.map((pair, i) => (
-                          <MatchSlot key={i} teamA={pair[0]} teamB={pair[1]}
-                            winner={leftWinners[i]} matchNum={i}
-                            onPick={(t) => pickWinner('r32', i, t)} />
-                        ))}
-                      </div>
-                      {/* Direita */}
-                      <div className="grid grid-cols-4 gap-1">
-                        {rightPairs.map((pair, i) => (
-                          <MatchSlot key={i+8} teamA={pair[0]} teamB={pair[1]}
-                            winner={rightWinners[i]} matchNum={i+8}
-                            onPick={(t) => pickWinner('r32', i+8, t)} />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
- 
-                  {/* Oitavas */}
-                  <div className="mb-1 mt-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-black tracking-widest text-gray-400" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>OITAVAS DE FINAL</span>
-                      <div className="h-px flex-1 bg-gray-100" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="grid grid-cols-4 gap-1">
-                        {oitL.map((pair, i) => (
-                          <MatchSlot key={i} teamA={pair[0]} teamB={pair[1]}
-                            winner={oitWL[i]} onPick={(t) => pickWinner('oitavas', i, t)} />
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-4 gap-1">
-                        {oitR.map((pair, i) => (
-                          <MatchSlot key={i+4} teamA={pair[0]} teamB={pair[1]}
-                            winner={oitWR[i]} onPick={(t) => pickWinner('oitavas', i+4, t)} />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
- 
-                  {/* Quartas */}
-                  <div className="mb-1 mt-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-black tracking-widest text-gray-400" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>QUARTAS DE FINAL</span>
-                      <div className="h-px flex-1 bg-gray-100" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        {qtL.map((pair, i) => (
-                          <MatchSlot key={i} teamA={pair[0]} teamB={pair[1]}
-                            winner={qtWL[i]} onPick={(t) => pickWinner('quartas', i, t)} />
-                        ))}
-                      </div>
-                      <div className="grid grid-cols-2 gap-2">
-                        {qtR.map((pair, i) => (
-                          <MatchSlot key={i+2} teamA={pair[0]} teamB={pair[1]}
-                            winner={qtWR[i]} onPick={(t) => pickWinner('quartas', i+2, t)} />
-                        ))}
-                      </div>
-                    </div>
-                  </div>
- 
-                  {/* Semi */}
-                  <div className="mb-1 mt-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-black tracking-widest text-gray-400" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>SEMIFINAL</span>
-                      <div className="h-px flex-1 bg-gray-100" />
-                    </div>
-                    <div className="grid grid-cols-2 gap-2">
-                      <div className="flex justify-center">
-                        <MatchSlot teamA={semi[0]?.[0]} teamB={semi[0]?.[1]}
-                          winner={winners.semi?.[0]} onPick={(t) => pickWinner('semi', 0, t)} />
-                      </div>
-                      <div className="flex justify-center">
-                        <MatchSlot teamA={semi[1]?.[0]} teamB={semi[1]?.[1]}
-                          winner={winners.semi?.[1]} onPick={(t) => pickWinner('semi', 1, t)} />
-                      </div>
-                    </div>
-                  </div>
- 
-                  {/* Final */}
-                  <div className="mt-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-black tracking-widest text-yellow-500" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>GRANDE FINAL</span>
-                      <div className="h-px flex-1 bg-yellow-200" />
-                    </div>
-                    <div className="flex justify-center">
-                      <div className="bg-white border-2 border-yellow-300 rounded-xl p-4 flex flex-col items-center gap-3">
-                        <div className="flex items-center gap-6">
-                          {/* Finalista esquerdo */}
-                          <div className="flex flex-col items-center gap-1">
-                            <TeamBall team={final[0]?.[0]} size="md"
-                              onClick={final[0]?.[0] && final[0]?.[1] ? () => pickWinner('final', 0, final[0][0]!) : undefined}
-                              isWinner={!!champion && champion.n === final[0]?.[0]?.n}
-                              isLoser={!!champion && champion.n !== final[0]?.[0]?.n} />
-                            <span className="text-xs text-gray-500 max-w-16 truncate text-center">{final[0]?.[0]?.n || '—'}</span>
-                          </div>
-                          <span className="text-2xl font-black text-gray-200" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>VS</span>
-                          {/* Finalista direito */}
-                          <div className="flex flex-col items-center gap-1">
-                            <TeamBall team={final[0]?.[1]} size="md"
-                              onClick={final[0]?.[0] && final[0]?.[1] ? () => pickWinner('final', 0, final[0][1]!) : undefined}
-                              isWinner={!!champion && champion.n === final[0]?.[1]?.n}
-                              isLoser={!!champion && champion.n !== final[0]?.[1]?.n} />
-                            <span className="text-xs text-gray-500 max-w-16 truncate text-center">{final[0]?.[1]?.n || '—'}</span>
+                  {/* FINAL CENTRO */}
+                  <div style={{ flexShrink: 0, width: 110 }}>
+                    <div className="text-center mb-1" style={{ fontSize: 9, fontWeight: 500, color: 'var(--color-text-secondary)', letterSpacing: '0.07em', textTransform: 'uppercase' }}>Final</div>
+                    <div style={{ height: TOTAL_H, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
+                      <TeamSlot team={finalPair[0]} winner={champion}
+                        onClick={finalPair[0] && finalPair[1] ? () => setChampion(finalPair[0]) : undefined} />
+                      <span style={{ fontSize: 10, color: 'var(--color-text-tertiary)' }}>×</span>
+                      <TeamSlot team={finalPair[1]} winner={champion}
+                        onClick={finalPair[0] && finalPair[1] ? () => setChampion(finalPair[1]) : undefined} />
+                      {champion && (
+                        <div className="text-center mt-3">
+                          <div style={{ fontSize: 24 }}>🏆</div>
+                          <div style={{ fontSize: 9, color: 'var(--color-text-secondary)', textTransform: 'uppercase', letterSpacing: '0.07em', margin: '2px 0' }}>Campeão</div>
+                          <div className="flex items-center justify-center gap-1 mt-1">
+                            <div className="w-6 h-6 rounded-full border-2 border-yellow-400 bg-yellow-50 flex items-center justify-center">
+                              <Flag code={champion.c} size="sm" />
+                            </div>
+                            <span className="font-black text-sm tracking-widest" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{champion.n}</span>
                           </div>
                         </div>
- 
-                        {champion && (
-                          <div className="text-center border-t border-yellow-200 pt-3 w-full">
-                            <p className="text-xs text-yellow-600 font-bold tracking-widest mb-1">🏆 CAMPEÃO</p>
-                            <div className="flex items-center justify-center gap-2">
-                              <div className="w-10 h-10 rounded-full border-2 border-yellow-400 bg-yellow-50 flex items-center justify-center">
-                                <Flag code={champion.c} size="md" />
-                              </div>
-                              <span className="font-black text-lg tracking-widest" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>
-                                {champion.n}
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
                   </div>
+ 
+                  {/* LADO DIREITO */}
+                  <Connector count={1} side="R" />
+                  <BracketCol pairs={semiR} winners={winnersR.semi} label="Semi"
+                    onPick={(mi, t) => pickSide('R','semi',mi,t)} />
+                  <Connector count={2} side="R" />
+                  <BracketCol pairs={qtR} winners={winnersR.qt} label="Quartas"
+                    onPick={(mi, t) => pickSide('R','qt',mi,t)} />
+                  <Connector count={4} side="R" />
+                  <BracketCol pairs={oitR} winners={winnersR.oit} label="Oitavas"
+                    onPick={(mi, t) => pickSide('R','oit',mi,t)} />
+                  <Connector count={8} side="R" />
+                  <BracketCol pairs={r32.slice(8,16)} winners={winnersR.r32.slice(0,8)} label="Rodada de 32"
+                    onPick={(mi, t) => pickSide('R','r32',mi,t)} />
  
                 </div>
               </div>
  
-              <button onClick={() => setSimStep('grupos')}
-                className="mt-6 text-xs text-gray-400 hover:text-black transition">
+              <button onClick={() => setSimStep('grupos')} className="mt-6 text-xs text-gray-400 hover:text-black transition">
                 ← Voltar aos grupos
               </button>
             </div>
