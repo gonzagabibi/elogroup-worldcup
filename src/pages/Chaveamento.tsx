@@ -59,6 +59,8 @@ function Flag({ code, size = 'sm' }: { code: string; size?: 'sm' | 'md' }) {
 const TOTAL_H = 576
 const CONNECTOR_W = 18
  
+const LABEL_H = 20
+ 
 function Connector({ count, side }: { count: number; side: 'L' | 'R' }) {
   const cellH = TOTAL_H / count
   const paths: string[] = []
@@ -73,8 +75,8 @@ function Connector({ count, side }: { count: number; side: 'L' | 'R' }) {
     }
   }
   return (
-    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
-      <div style={{ height: 16, flexShrink: 0 }} />
+    <div style={{ flexShrink: 0, width: CONNECTOR_W }}>
+      <div style={{ height: LABEL_H }} />
       <svg width={CONNECTOR_W} height={TOTAL_H} style={{ display: 'block' }}>
         {paths.map((d, i) => <path key={i} d={d} fill="none" stroke="#D3D1C7" strokeWidth="1.5" />)}
       </svg>
@@ -118,7 +120,7 @@ function BracketCol({ pairs, winners, label, onPick }: {
   const cellH = TOTAL_H / n
   return (
     <div style={{ flexShrink: 0 }}>
-      <div className="text-xs font-semibold text-gray-400 tracking-widest uppercase mb-1 text-center" style={{ fontSize: 9 }}>{label}</div>
+      <div className="text-xs font-semibold text-gray-400 tracking-widest uppercase text-center" style={{ fontSize: 9, height: 20, display: "flex", alignItems: "center", justifyContent: "center" }}>{label}</div>
       <div style={{ height: TOTAL_H }}>
         {pairs.map((pair, i) => {
           const ta = pair?.[0], tb = pair?.[1]
