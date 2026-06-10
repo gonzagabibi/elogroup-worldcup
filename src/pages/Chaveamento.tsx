@@ -73,7 +73,8 @@ function Connector({ count, side }: { count: number; side: 'L' | 'R' }) {
     }
   }
   return (
-    <div style={{ flexShrink: 0, paddingTop: 16 }}>
+    <div style={{ flexShrink: 0, display: 'flex', flexDirection: 'column' }}>
+      <div style={{ height: 16, flexShrink: 0 }} />
       <svg width={CONNECTOR_W} height={TOTAL_H} style={{ display: 'block' }}>
         {paths.map((d, i) => <path key={i} d={d} fill="none" stroke="#D3D1C7" strokeWidth="1.5" />)}
       </svg>
@@ -349,7 +350,7 @@ export default function Chaveamento() {
             <div>
               <p className="text-xs text-gray-400 mb-4">Clique no time vencedor de cada confronto para avançar de fase.</p>
               <div style={{ overflowX: 'auto' }}>
-                <div style={{ display: 'flex', alignItems: 'flex-start', minWidth: 900 }}>
+                <div style={{ display: 'flex', alignItems: 'stretch', minWidth: 900 }}>
  
                   {/* LADO ESQUERDO */}
                   <BracketCol pairs={r32.slice(0,8)} winners={winnersL.r32.slice(0,8)} label="Rodada de 32"
