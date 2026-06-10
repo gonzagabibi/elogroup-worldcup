@@ -73,9 +73,11 @@ function Connector({ count, side }: { count: number; side: 'L' | 'R' }) {
     }
   }
   return (
-    <svg width={CONNECTOR_W} height={TOTAL_H} style={{ display: 'block', flexShrink: 0 }}>
-      {paths.map((d, i) => <path key={i} d={d} fill="none" stroke="#D3D1C7" strokeWidth="1.5" />)}
-    </svg>
+    <div style={{ flexShrink: 0, paddingTop: 16 }}>
+      <svg width={CONNECTOR_W} height={TOTAL_H} style={{ display: 'block' }}>
+        {paths.map((d, i) => <path key={i} d={d} fill="none" stroke="#D3D1C7" strokeWidth="1.5" />)}
+      </svg>
+    </div>
   )
 }
  
