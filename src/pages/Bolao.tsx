@@ -345,7 +345,8 @@ export default function Bolao() {
   const finalSa = parseInt(finalS['0-a'] || '')
   const finalSb = parseInt(finalS['0-b'] || '')
   const finalPenWinner = penaltyWinners.final?.[0] as Team | null
-  const champion = finalPenWinner ? finalPenWinner :
+  const finalIsTie = !isNaN(finalSa) && !isNaN(finalSb) && finalSa === finalSb
+  const champion = (finalIsTie && finalPenWinner) ? finalPenWinner :
     (!isNaN(finalSa) && !isNaN(finalSb) && finalSa !== finalSb) ? (finalSa > finalSb ? ta : tb) : null
 
   const tabs = [
