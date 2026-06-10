@@ -143,7 +143,15 @@ export default function MinhaPerformance() {
         const ta = pair[0], tb = pair[1]
         const userA = bs[`${i}-a`] !== undefined && bs[`${i}-a`] !== '' ? parseInt(bs[`${i}-a`]) : null
         const userB = bs[`${i}-b`] !== undefined && bs[`${i}-b`] !== '' ? parseInt(bs[`${i}-b`]) : null
-        const userWinner = pw[i] || bw[i] || null
+        // Deriva vencedor do placar editado; só usa bw/pw se não há placar
+        let userWinner = null
+        if (userA !== null && userB !== null) {
+          if (userA > userB) userWinner = ta
+          else if (userB > userA) userWinner = tb
+          else userWinner = pw[i] || null  // empate: usa penaltyWinner
+        } else {
+          userWinner = pw[i] || bw[i] || null
+        }
         // Resultado real do mata-mata ainda não disponível
         return {
           homeTeam: ta, awayTeam: tb,
