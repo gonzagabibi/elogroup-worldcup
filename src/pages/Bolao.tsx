@@ -372,12 +372,13 @@ export default function Bolao() {
         const sa = s[`${i}-a`] || ''
         const sb = s[`${i}-b`] || ''
         const isTie = sa !== '' && sb !== '' && sa === sb
+        const showPen = isTie && (penW !== null && penW !== undefined)
         return (
           <div key={i} className={`bg-white border rounded-xl p-4 flex items-center gap-3 ${isTie ? 'border-yellow-300' : 'border-gray-200'}`}>
             <span className={`flex items-center gap-2 flex-1 text-sm font-medium ${w?.n === ta.n ? 'text-green-600 font-bold' : ''}`}>
               <Flag code={ta.c} />{ta.n}
               {w?.n === ta.n && <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">v</span>}
-              {penW?.n === ta.n && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold">PEN</span>}
+              {showPen && penW?.n === ta.n && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold">PEN</span>}
             </span>
             <div className="flex items-center gap-1 flex-shrink-0">
               <input type="number" min="0" max="20" disabled={locked}
@@ -390,7 +391,7 @@ export default function Bolao() {
             </div>
             <span className={`flex items-center gap-2 flex-1 justify-end text-sm font-medium ${w?.n === tb.n ? 'text-green-600 font-bold' : ''}`}>
               {w?.n === tb.n && <span className="text-xs bg-green-100 text-green-600 px-1.5 py-0.5 rounded font-bold">v</span>}
-              {penW?.n === tb.n && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold">PEN</span>}
+              {showPen && penW?.n === tb.n && <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-bold">PEN</span>}
               {tb.n}<Flag code={tb.c} />
             </span>
           </div>

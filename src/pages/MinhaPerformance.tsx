@@ -209,6 +209,22 @@ export default function MinhaPerformance() {
               </span>
             </div>
           )}
+          {row.userA !== null && row.userWinner && (
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-xs text-gray-400 mr-1">Vencedor:</span>
+              <span className="flex items-center gap-1 text-xs font-bold text-yellow-700 border border-yellow-300 bg-yellow-50 px-2 py-0.5 rounded">
+                <Flag code={row.userWinner.c} size="sm" />{row.userWinner.n} 🥅
+              </span>
+            </div>
+          )}
+          {row.userA !== null && row.userWinner && (
+            <div className="flex items-center gap-1 mt-1">
+              <span className="text-xs text-gray-400 mr-1">Vencedor:</span>
+              <span className="flex items-center gap-1 text-xs font-bold text-yellow-700 border border-yellow-300 bg-yellow-50 px-2 py-0.5 rounded">
+                <Flag code={row.userWinner.c} size="sm" />{row.userWinner.n} 🥅
+              </span>
+            </div>
+          )}
           {row.played && row.realA !== null && (
             <div className="flex items-center gap-1">
               <span className="text-xs text-gray-400 mr-1">Real: &nbsp;&nbsp;</span>

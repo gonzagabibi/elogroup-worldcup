@@ -13,8 +13,8 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
 const navItems = [
   { id: 'chaveamento', label: 'CHAVEAMENTO', badge: false },
   { id: 'ranking', label: 'RANKING', badge: false },
-  { id: 'bolao', label: 'MEU BOLÃO', badge: true },
-  { id: 'craques', label: 'CRAQUES', badge: true },
+  { id: 'bolao', label: 'MEU BOLÃO', badge: false },
+  { id: 'craques', label: 'CRAQUES', badge: false },
   { id: 'performance', label: 'PERFORMANCE', badge: false },
   { id: 'dashboard', label: 'DASHBOARD', badge: false },
   { id: 'pontuacao', label: 'PONTUAÇÃO', badge: false },
