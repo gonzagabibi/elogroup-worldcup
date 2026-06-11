@@ -65,17 +65,17 @@ const TEAMS: Team[] = [
 ]
  
 const CRAQUES = [
-  { n:'Mbappé',     flag:'🇫🇷', selecao:'França',     data:{2019:0.52,2020:0.58,2021:0.62,2022:0.71,2023:0.75,2024:0.78,2025:0.82} },
-  { n:'Vinicius Jr',flag:'🇧🇷', selecao:'Brasil',     data:{2019:0.28,2020:0.35,2021:0.48,2022:0.55,2023:0.62,2024:0.68,2025:0.72} },
-  { n:'Haaland',    flag:'🇳🇴', selecao:'Noruega',    data:{2019:0.72,2020:0.85,2021:0.92,2022:0.88,2023:0.95,2024:0.98,2025:1.02} },
-  { n:'Messi',      flag:'🇦🇷', selecao:'Argentina',  data:{2019:0.65,2020:0.68,2021:0.72,2022:0.78,2023:0.65,2024:0.60,2025:0.55} },
-  { n:'CR7',        flag:'🇵🇹', selecao:'Portugal',   data:{2019:0.70,2020:0.68,2021:0.65,2022:0.62,2023:0.55,2024:0.50,2025:0.45} },
-  { n:'Neymar',     flag:'🇧🇷', selecao:'Brasil',     data:{2019:0.62,2020:0.58,2021:0.52,2022:0.48,2023:0.32,2024:0.25,2025:0.30} },
-  { n:'Endrick',    flag:'🇧🇷', selecao:'Brasil',     data:{2019:0,2020:0,2021:0,2022:0.15,2023:0.28,2024:0.42,2025:0.52} },
+  { n:'Mbappé',     flag:'🇫🇷', selecao:'França',     data:{2019:0.52,2020:0.58,2021:0.62,2022:0.71,2023:0.75,2024:0.78,2025:0.82} as Record<number,number> },
+  { n:'Vinicius Jr',flag:'🇧🇷', selecao:'Brasil',     data:{2019:0.28,2020:0.35,2021:0.48,2022:0.55,2023:0.62,2024:0.68,2025:0.72} as Record<number,number> },
+  { n:'Haaland',    flag:'🇳🇴', selecao:'Noruega',    data:{2019:0.72,2020:0.85,2021:0.92,2022:0.88,2023:0.95,2024:0.98,2025:1.02} as Record<number,number> },
+  { n:'Messi',      flag:'🇦🇷', selecao:'Argentina',  data:{2019:0.65,2020:0.68,2021:0.72,2022:0.78,2023:0.65,2024:0.60,2025:0.55} as Record<number,number> },
+  { n:'CR7',        flag:'🇵🇹', selecao:'Portugal',   data:{2019:0.70,2020:0.68,2021:0.65,2022:0.62,2023:0.55,2024:0.50,2025:0.45} as Record<number,number> },
+  { n:'Neymar',     flag:'🇧🇷', selecao:'Brasil',     data:{2019:0.62,2020:0.58,2021:0.52,2022:0.48,2023:0.32,2024:0.25,2025:0.30} as Record<number,number> },
+  { n:'Endrick',    flag:'🇧🇷', selecao:'Brasil',     data:{2019:0,2020:0,2021:0,2022:0.15,2023:0.28,2024:0.42,2025:0.52} as Record<number,number> },
   { n:'Bellingham', flag:'🏴󠁧󠁢󠁥󠁮󠁧󠁿', selecao:'Inglaterra', data:{2019:0.08,2020:0.12,2021:0.22,2022:0.32,2023:0.45,2024:0.52,2025:0.58} },
-  { n:'Lamine Yamal',flag:'🇪🇸', selecao:'Espanha',  data:{2019:0,2020:0,2021:0,2022:0,2023:0.28,2024:0.45,2025:0.55} },
-  { n:'Modric',     flag:'🇭🇷', selecao:'Croácia',    data:{2019:0.22,2020:0.20,2021:0.18,2022:0.20,2023:0.15,2024:0.12,2025:0.10} },
-  { n:'Salah',      flag:'🇪🇬', selecao:'Egito',      data:{2019:0.68,2020:0.65,2021:0.70,2022:0.72,2023:0.68,2024:0.62,2025:0.58} },
+  { n:'Lamine Yamal',flag:'🇪🇸', selecao:'Espanha',  data:{2019:0,2020:0,2021:0,2022:0,2023:0.28,2024:0.45,2025:0.55} as Record<number,number> },
+  { n:'Modric',     flag:'🇭🇷', selecao:'Croácia',    data:{2019:0.22,2020:0.20,2021:0.18,2022:0.20,2023:0.15,2024:0.12,2025:0.10} as Record<number,number> },
+  { n:'Salah',      flag:'🇪🇬', selecao:'Egito',      data:{2019:0.68,2020:0.65,2021:0.70,2022:0.72,2023:0.68,2024:0.62,2025:0.58} as Record<number,number> },
 ]
  
 const YEARS = [2019,2020,2021,2022,2023,2024,2025]
@@ -103,11 +103,6 @@ function getScore(team: Team, attrs: AttrDef[]): number {
   if (!active.length) return 0.5
   const totalW = active.length
   return active.reduce((s, a) => s + (normalize(team[a.key] as number, a) / 100) * (1 / totalW), 0)
-}
- 
-function Flag({ code, size = 'sm' }: { code: string; size?: 'sm' | 'md' }) {
-  const sizes = { sm: '0.9rem', md: '1.2rem' }
-  return <span className={`fi fi-${code} rounded-sm`} style={{ fontSize: sizes[size], lineHeight: 1, flexShrink: 0 }} />
 }
  
 function BarRow({ label, val, valOther, rawVal, max }: { label: string; val: number; valOther: number; rawVal: number; max: number }) {
