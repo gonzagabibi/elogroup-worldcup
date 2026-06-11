@@ -17,7 +17,7 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
     { id: 'craques', label: 'CRAQUES', badge: false },
     { id: 'performance', label: 'PERFORMANCE', badge: false },
     { id: 'dashboard', label: 'ACOMPANHE OS JOGOS', badge: false },
-    { id: 'warroom', label: 'WAR ROOM', badge: false },
+    { id: 'warroom', label: 'ANÁLISES', badge: false },
     { id: 'pontuacao', label: 'PONTUAÇÃO', badge: false },
     { id: 'instrucoes', label: 'INSTRUÇÕES', badge: false },
   ]
