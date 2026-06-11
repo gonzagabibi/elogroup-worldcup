@@ -124,7 +124,8 @@ export default function WarRoom() {
   const [activeTab, setActiveTab] = useState<'comparar' | 'simular' | 'craques'>('comparar')
  
   // Comparar times
-  const [selectedTeams, setSelectedTeams] = useState<string[]>(['Brasil', 'França', 'Argentina'])
+  const [selectedTeams, setSelectedTeams] = useState<string[]>(TEAMS.slice(0,10).map(t=>t.name))
+  const [selectedAttr, setSelectedAttr] = useState<keyof Team>('ataque')
  
   // Simulador
   const [idxA, setIdxA] = useState(5) // Brasil
@@ -134,14 +135,6 @@ export default function WarRoom() {
  
   // Craques
   const [selectedCraques, setSelectedCraques] = useState<string[]>(['Mbappé', 'Haaland', 'Vinicius Jr'])
- 
-  const toggleTeam = (name: string) => {
-    if (selectedTeams.includes(name)) {
-      if (selectedTeams.length > 1) setSelectedTeams(prev => prev.filter(n => n !== name))
-    } else {
-      if (selectedTeams.length < 4) setSelectedTeams(prev => [...prev, name])
-    }
-  }
  
   const toggleCraque = (name: string) => {
     setSelectedCraques(prev =>
@@ -180,8 +173,6 @@ export default function WarRoom() {
   const winner = sA >= sB ? teamA : teamB
   const confidence = diff < 0.03 ? 'Jogo equilibrado' : diff < 0.08 ? 'Leve vantagem para' : 'Favorito:'
  
-  const selectedTeamObjs = TEAMS.filter(t => selectedTeams.includes(t.name))
- 
   // Chart data para craques (SVG simples)
   const craquesData = CRAQUES.filter(c => selectedCraques.includes(c.n))
   const maxVal = 1.2
@@ -211,51 +202,77 @@ export default function WarRoom() {
       {/* COMPARAR TIMES */}
       {activeTab === 'comparar' && (
         <div>
-          <p className="text-xs text-gray-400 mb-3">Selecione até 4 times para comparar os atributos lado a lado.</p>
-          <div className="flex flex-wrap gap-1.5 mb-6">
-            {TEAMS.map(t => (
-              <button key={t.name} onClick={() => toggleTeam(t.name)}
-                className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs border transition ${
-                  selectedTeams.includes(t.name)
-                    ? 'bg-black text-yellow-400 border-black'
-                    : 'bg-white text-gray-600 border-gray-200 hover:border-gray-400'
-                }`}>
-                {t.flag} {t.name}
-              </button>
-            ))}
+          <div className="grid grid-cols-2 gap-4 mb-6">
+            <div>
+              <label className="text-xs font-bold tracking-widest text-gray-500 mb-1 block">ATRIBUTO</label>
+              <select
+                value={selectedAttr}
+                onChange={e => setSelectedAttr(e.target.value as keyof Team)}
+                className="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-medium focus:outline-none focus:border-green-600">
+                {ATTR_DEFS.map(a => <option key={String(a.key)} value={String(a.key)}>{a.label}</option>)}
+              </select>
+            </div>
+            <div>
+              <div className="flex items-center justify-between mb-1">
+                <label className="text-xs font-bold tracking-widest text-gray-500">TIMES</label>
+                <button
+                  onClick={() => setSelectedTeams(prev => prev.length === TEAMS.length ? TEAMS.slice(0,10).map(t=>t.name) : TEAMS.map(t=>t.name))}
+                  className="text-xs text-green-600 font-semibold hover:underline">
+                  {selectedTeams.length === TEAMS.length ? 'Desmarcar todos' : 'Selecionar todos'}
+                </button>
+              </div>
+              <div className="border border-gray-200 rounded-xl p-2 max-h-52 overflow-y-auto">
+                {TEAMS.map(t => (
+                  <label key={t.name} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-gray-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={selectedTeams.includes(t.name)}
+                      onChange={() => setSelectedTeams(prev =>
+                        prev.includes(t.name)
+                          ? prev.length > 1 ? prev.filter(n => n !== t.name) : prev
+                          : [...prev, t.name]
+                      )}
+                      className="w-3.5 h-3.5 flex-shrink-0"
+                    />
+                    <span className="text-xs">{t.flag} {t.name}</span>
+                    <span className="text-xs text-gray-400 ml-auto">#{t.fifa}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
           </div>
  
-          <div className="flex gap-3 mb-3 flex-wrap">
-            {selectedTeamObjs.map((t, i) => (
-              <span key={t.name} className="flex items-center gap-1.5 text-xs font-medium">
-                <span className="w-3 h-3 rounded-sm inline-block" style={{ background: COLORS[i % COLORS.length] }} />
-                {t.flag} {t.name}
-              </span>
-            ))}
-          </div>
- 
-          <div className="bg-white border border-gray-200 rounded-xl p-4">
-            {ATTR_DEFS.map(attr => (
-              <div key={attr.key} className="mb-4">
-                <div className="text-xs font-semibold text-gray-500 mb-2 tracking-widest uppercase">{attr.label}</div>
-                <div className="flex gap-2 items-end">
-                  {selectedTeamObjs.map((t, i) => {
-                    const val = normalize(t[attr.key] as number, attr)
-                    const rawDisplay = attr.max === 100 ? String(t[attr.key]) : (t[attr.key] as number).toFixed(1)
+          {(() => {
+            const attr = ATTR_DEFS.find(a => String(a.key) === String(selectedAttr))!
+            const sorted = TEAMS.filter(t => selectedTeams.includes(t.name))
+              .sort((a, b) => (b[selectedAttr] as number) - (a[selectedAttr] as number))
+            const maxVal = sorted[0] ? (sorted[0][selectedAttr] as number) : 1
+            return (
+              <div className="bg-white border border-gray-200 rounded-xl p-4">
+                <p className="text-xs font-bold tracking-widest text-gray-500 mb-4">{attr?.label?.toUpperCase()} — {sorted.length} times</p>
+                <div className="flex flex-col gap-2">
+                  {sorted.map((t, i) => {
+                    const val = t[selectedAttr] as number
+                    const pct = (val / maxVal) * 100
+                    const color = pct > 85 ? '#1D9E75' : pct > 65 ? '#378ADD' : pct > 45 ? '#BA7517' : '#888780'
+                    const display = attr.max === 100 ? String(val) : val.toFixed(1)
                     return (
-                      <div key={t.name} className="flex flex-col items-center gap-1" style={{ flex: 1 }}>
-                        <span className="text-xs font-bold" style={{ color: COLORS[i % COLORS.length] }}>{rawDisplay}</span>
-                        <div className="w-full rounded-sm overflow-hidden" style={{ height: Math.max(4, val * 0.8), background: COLORS[i % COLORS.length] + '30', border: `1px solid ${COLORS[i % COLORS.length]}40` }}>
-                          <div className="w-full" style={{ height: '100%', background: COLORS[i % COLORS.length], opacity: 0.7 }} />
+                      <div key={t.name} className="flex items-center gap-3">
+                        <span className="text-xs text-gray-400 w-5 text-right flex-shrink-0">{i+1}</span>
+                        <span className="text-xs flex-shrink-0 w-36 truncate">{t.flag} {t.name}</span>
+                        <div className="flex-1 h-5 bg-gray-100 rounded overflow-hidden">
+                          <div className="h-full rounded transition-all flex items-center px-2"
+                            style={{ width: `${pct}%`, background: color }}>
+                          </div>
                         </div>
-                        <span className="text-xs text-gray-400 truncate max-w-full text-center">{t.flag}</span>
+                        <span className="text-xs font-bold text-gray-700 w-8 text-right flex-shrink-0">{display}</span>
                       </div>
                     )
                   })}
                 </div>
               </div>
-            ))}
-          </div>
+            )
+          })()}
         </div>
       )}
  
