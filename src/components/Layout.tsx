@@ -11,16 +11,16 @@ export default function Layout({ children, currentPage, onNavigate }: LayoutProp
   const { user, signOut } = useAuth()
  
   const navItems = [
-    { id: 'chaveamento', label: 'CHAVEAMENTO', badge: false },
-    { id: 'ranking', label: 'RANKING', badge: false },
-    { id: 'bolao', label: 'MEU BOLÃO', badge: false },
-    { id: 'craques', label: 'CRAQUES', badge: false },
-    { id: 'performance', label: 'PERFORMANCE', badge: false },
-    { id: 'dashboard', label: 'ACOMPANHE OS JOGOS', badge: false },
-    { id: 'warroom', label: 'ANÁLISES', badge: false },
-    { id: 'pontuacao', label: 'PONTUAÇÃO', badge: false },
-    { id: 'instrucoes', label: 'INSTRUÇÕES', badge: false },
-  ]
+  { id: 'chaveamento', label: 'CHAVEAMENTO', badge: false },
+  { id: 'warroom', label: 'ANÁLISES', badge: false },
+  { id: 'bolao', label: 'MEU BOLÃO', badge: false },
+  { id: 'craques', label: 'CRAQUES', badge: false },
+  { id: 'ranking', label: 'RANKING', badge: false },
+  { id: 'performance', label: 'PERFORMANCE', badge: false },
+  { id: 'dashboard', label: 'ACOMPANHE OS JOGOS', badge: false },
+  { id: 'pontuacao', label: 'PONTUAÇÃO', badge: false },
+  { id: 'instrucoes', label: 'INSTRUÇÕES', badge: false },
+]
  
   return (
     <div className="min-h-screen bg-gray-50">
