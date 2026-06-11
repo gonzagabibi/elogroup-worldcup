@@ -165,7 +165,7 @@ export default function Dashboard() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="font-black text-3xl tracking-widest" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>DASHBOARD</h1>
+          <h1 className="font-black text-3xl tracking-widest" style={{ fontFamily: 'Bebas Neue, sans-serif' }}>ACOMPANHE OS JOGOS</h1>
           <p className="text-gray-400 text-sm">Copa do Mundo 2026 — jogos em tempo real</p>
         </div>
         <div className="text-right">
