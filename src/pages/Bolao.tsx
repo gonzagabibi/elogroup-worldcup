@@ -121,7 +121,40 @@ function buildR32(allClassified: Record<number, Team[]>, allThirds: Standing[]):
     [c[3]?.[1], c[6]?.[1]],
   ]
 }
+const DEADLINE = new Date('2026-06-13T15:00:00-03:00')
 
+function DeadlineBanner({ locked }: { locked: boolean }) {
+  const [timeLeft, setTimeLeft] = useState('')
+
+  useEffect(() => {
+    const update = () => {
+      const diff = DEADLINE.getTime() - new Date().getTime()
+      if (diff <= 0) { setTimeLeft('ENCERRADO'); return }
+      const h = Math.floor(diff / 3600000)
+      const m = Math.floor((diff % 3600000) / 60000)
+      const s = Math.floor((diff % 60000) / 1000)
+      setTimeLeft(h > 48 ? `${Math.floor(h/24)}d ${h%24}h ${m}m` : `${h}h ${m}m ${s}s`)
+    }
+    update()
+    const t = setInterval(update, 1000)
+    return () => clearInterval(t)
+  }, [])
+
+  if (locked) return null
+  const isUrgent = DEADLINE.getTime() - new Date().getTime() < 24 * 3600000
+  return (
+    <div className={`${isUrgent ? 'bg-red-50 border-red-300' : 'bg-orange-50 border-orange-200'} border rounded-xl px-4 py-3 mb-6 flex items-center justify-between`}>
+      <div className="flex items-center gap-2">
+        <span className="text-lg">{isUrgent ? '🚨' : '⏰'}</span>
+        <div>
+          <p className={`text-xs font-bold ${isUrgent ? 'text-red-700' : 'text-orange-700'}`}>PRAZO PARA PREENCHER O BOLÃO</p>
+          <p className={`text-xs ${isUrgent ? 'text-red-600' : 'text-orange-600'}`}>13/06 às 15h00 (horário de Brasília)</p>
+        </div>
+      </div>
+      <div className={`font-black text-lg tracking-widest ${isUrgent ? 'text-red-600' : 'text-orange-600'}`} style={{ fontFamily: 'Bebas Neue, sans-serif' }}>{timeLeft}</div>
+    </div>
+  )
+}
 export default function Bolao() {
   const { user } = useAuth()
   const [stage, setStage] = useState('grupos')
@@ -412,6 +445,7 @@ export default function Bolao() {
 
   return (
     <div>
+      <DeadlineBanner locked={locked} />
       {confirmed && (
         <div className="bg-green-600 text-white text-center py-3 px-6 rounded-xl mb-6 font-semibold tracking-wider">
           Bolão confirmado! Boa sorte na Copa!
